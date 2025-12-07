@@ -1,0 +1,10 @@
+#!/bin/bash
+send_at_command() {
+    local command="$1"
+    echo -en "$command\r\n" | microcom -t 2000 /dev/ttyOUT2
+}
+send_at_command "AT+CMGF=1;+CSCS=\"UCS2\""
+runcmd=$(send_at_command "AT+CMGL=\"ALL\"")
+
+echo "Content-type: text/plain"
+echo "$runcmd"

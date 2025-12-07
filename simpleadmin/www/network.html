@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Admin</title>
+  <!-- Import all Bootstrap CSS files from the css folder -->
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <!-- Favicon -->
+  <link rel="icon" href="favicon.ico" />
+  <!-- JS at the end to improve initial render -->
+  <script src="js/band_map.js" defer></script>
+
+  <script src="js/bootstrap.bundle.min.js" defer></script>
+  <script src="js/alpinejs.min.js" defer></script>
+</head>
+
+<body>
+  <main>
+    <!-- Add x-init to ensure the component initializes automatically -->
+    <div class="container my-4" x-data="cellLocking()" x-init="init()">
+      <nav class="navbar navbar-expand-lg mt-2">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="/"><span class="mb-0 h4">Simple Admin</span></a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+              <li class="nav-item">
+                <a class="nav-link" href="/">Home</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link active" href="network.html" aria-current="page">Network</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/settings.html">Settings</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/sms.html">SMS</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/console">Console</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="deviceinfo.html">Device Info</a>
+              </li>
+            </ul>
+            <span class="navbar-text">
+              <button class="btn btn-link text-reset" id="darkModeToggle">
+                Dark Mode
+              </button>
+            </span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="row mt-4 gap-3">
+        <div class="col">
+          <div class="card">
+            <div class="card-header">
+              <div class="row align-items-center">
+                <div class="col">Band Locking</div>
+                <div class="col-md-3">
+                  <select class="form-select" id="networkModeBand" aria-label="LTE">
+                    <option selected value="LTE">LTE</option>
+                    <option value="NSA">NR5G-NSA</option>
+                    <option value="SA">NR5G-SA</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <h5 class="card-subtitle" x-show="isGettingBands === true">
+                Fetching supported bands...
+              </h5>
+              <form id="checkboxForm" x-show="isGettingBands === false">
+                <!-- Checkboxes will be generated here -->
+              </form>
+            </div>
+            <div class="card-footer text-end">
+              <div class="d-flex align-items-center">
+                <div class="col">
+                  <button type="button" class="btn btn-primary m-2" @click="lockSelectedBands()">
+                    Lock Bands
+                  </button>
+                  <button type="button" class="btn btn-info m-2" id="uncheckAll">
+                    Uncheck All
+                  </button>
+                  <button type="button" class="btn btn-danger m-2" @click="resetBandLocking()">
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="card-footer d-flex align-items-center">
+              <p class="mb-0" x-text="'Active Bands: ' + bands"></p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="row gap-3 mt-4">
+        <div class="col">
+          <form>
+            <div class="card">
+              <div class="card-header">Network Tools</div>
+              <div class="card-body d-flex flex-column">
+                <div class="row g-3 mb-4">
+                  <!-- APN -->
+                  <div class="col-12 col-md-6">
+                    <label for="APN" class="form-label">APN</label>
+                    <input type="text" class="form-control" id="APN" x-model="newApn" aria-describedby="APN"
+                      x-bind:placeholder="apn === '-' ? 'Fetching...' : apn" />
+                  </div>
+                  <!-- PDP Type (IP Protocol) -->
+                  <div class="col-12 col-md-6">
+                    <label for="pdpType" class="form-label">IP Protocol Type</label>
+                    <select class="form-select" id="pdpType" x-model="newPdpType" aria-label="pdpType">
+                      <option selected x-text="pdpType === '-' ? 'Fetching...' : 'Current: ' + pdpType"></option>
+                      <option value="IPV4V6">IPv4v6</option>
+                      <option value="IP">IPv4</option>
+                      <option value="IPV6">IPv6</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row g-3 mb-4">
+                  <!-- Select Preferred Network -->
+                  <div class="col-12 col-md-6">
+                    <label for="prefNetworkMode" class="form-label">Select Preferred Network</label>
+                    <select class="form-select" id="prefNetworkMode" x-model="prefNetworkMode"
+                      aria-label="prefNetworkMode">
+                      <option selected x-text="prefNetwork === '-' ? 'Fetching...' : 'Current: ' + prefNetwork"></option>
+                      <option value="AUTO">Auto</option>
+                      <option value="LTE">Only LTE</option>
+                      <option value="LTE:NR5G">NR5G-NSA</option>
+                      <option value="NR5G">NR5G-SA</option>
+                    </select>
+                  </div>
+
+                  <!-- NR5G Mode Control -->
+                  <div class="col-12 col-md-6">
+                    <label for="nrModeControl" class="form-label">NR5G Mode Control</label>
+                    <select class="form-select" id="nrModeControl" x-model="nrModeControlNew"
+                      aria-label="nrModeControl">
+                      <option selected x-text="nrModeControlCurrent === null
+        ? 'Fetching...'
+        : ('Current: ' + (nrModeControlCurrent==='0' ? 'Enable All'
+                         : nrModeControlCurrent==='1' ? 'Disable NR5G-SA'
+                         : 'Disable NR5G-NSA'))">
+                      </option>
+                      <option value="0">Enable All</option>
+                      <option value="2">Disable NR5G-NSA</option>
+                      <option value="1">Disable NR5G-SA</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="card-footer text-end">
+                <button type="button" class="btn btn-primary" @click="saveChanges()">
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">Cell Locking</div>
+            <div class="card-body">
+              <select class="form-select" id="networkModeCell" x-model="networkModeCell" aria-label="LTE">
+                <option selected x-text="'Current: ' + cellLockStatus"></option>
+                <option>LTE</option>
+                <option>NR5G-SA</option>
+                <option>Unlock LTE</option>
+                <option>Unlock NR5G-SA</option>
+              </select>
+
+              <div class="my-4">
+                <!-- For LTE -->
+                <div id="lteElementsCell" x-show="networkModeCell == 'LTE'">
+                  <div class="input-group mb-3">
+                    <span class="input-group-text" id="basic-addon1">Number of Cells</span>
+                    <input type="number" class="form-control" placeholder="1-10" min="1" max="10" aria-label="NumCells"
+                      aria-describedby="basic-addon1" x-model="cellNum" />
+                  </div>
+                </div>
+
+                <div id="freqNumbersContainer">
+                  <!-- EARFCN and PCI will be generated here -->
+                </div>
+
+                <!-- For SA -->
+                <div id="saElementsCell" x-show="networkModeCell == 'NR5G-SA'">
+                  <div class="input-group mb-3" x-show="networkModeCell == 'NR5G-SA'">
+                    <input type="text" aria-label="EARFCN" placeholder="EARFCN" class="form-control"
+                      x-model="earfcn1" />
+                    <input type="text" aria-label="PCI" placeholder="PCI" class="form-control" x-model="pci1" />
+                  </div>
+
+                  <div class="input-group mb-3" x-show="networkModeCell == 'NR5G-SA'">
+                    <select class="form-select" x-model="scs" aria-label="SCS">
+                      <option selected>SCS</option>
+                      <option>15</option>
+                      <option>30</option>
+                      <option>60</option>
+                      <option>120</option>
+                      <option>240</option>
+                    </select>
+                    <input type="text" aria-label="band" placeholder="Band" class="form-control" x-model="band" />
+                  </div>
+                </div>
+
+                <button type="button" class="btn btn-primary" x-show="networkModeCell == 'LTE'"
+                  @click="cellLockEnableLTE()">
+                  Lock LTE Cell
+                </button>
+
+                <button type="button" class="btn btn-primary" x-show="networkModeCell == 'NR5G-SA'"
+                  @click="cellLockEnableNR()">
+                  Lock NR5G-SA Cell
+                </button>
+
+                <button type="button" class="btn btn-danger" x-show="networkModeCell == 'Unlock LTE'"
+                  @click="cellLockDisableLTE()">
+                  Unlock LTE Cell
+                </button>
+
+                <button type="button" class="btn btn-danger" x-show="networkModeCell == 'Unlock NR5G-SA'"
+                  @click="cellLockDisableNR()">
+                  Unlock NR5G-SA Cell
+                </button>
+              </div>
+              <div class="card-text">
+                <label class="form-label">Cell Scan</label>
+                <div class="d-grid gap-1 w-full">
+                  <a class="btn btn-warning" type="button" href="/scanner.html" role="button">
+                    Go to Cell Scan
+                  </a>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <!-- Band Locking Loading Modal -->
+      <div class="modal-overlay" x-show="showModal">
+        <div class="loading-modal">
+          <div class="loader"></div>
+          <div class="loading-text" style="display: flex; flex-direction: column">
+            <h3>Initializing Network...</h3>
+            <p style="margin-top: 0.5rem">
+              Please wait
+              <span x-text="countdown" style="font-weight: 500"></span>
+              seconds.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 导入频段锁定GUI JS（保持原有依赖） -->
+  <!-- <script src="js/band-locking.js"></script> -->
+  <script src="js/generate-freq-box.js" defer></script>
+  <script src="js/populate-checkbox.js" defer></script>
+  <script src="js/parse-settings.js" defer></script>
+
+  <script>
+    function cellLocking() {
+      return {
+        // ---------- 状态 ----------
+        isLoading: false,
+        showModal: false,
+        countdown: 0,
+        networkModeCell: "-",
+        // 兼容现有绑定（10 组 EARFCN/PCI）
+        earfcn1: null, pci1: null,
+        earfcn2: null, pci2: null,
+        earfcn3: null, pci3: null,
+        earfcn4: null, pci4: null,
+        earfcn5: null, pci5: null,
+        earfcn6: null, pci6: null,
+        earfcn7: null, pci7: null,
+        earfcn8: null, pci8: null,
+        earfcn9: null, pci9: null,
+        earfcn10: null, pci10: null,
+        scs: null,
+        band: null,
+        apn: "-",
+        newApn: null,
+        prefNetwork: "-",
+        prefNetworkMode: null,
+        nrModeControl: "-",
+        cellNum: null,
+        lte_bands: null,
+        nsa_bands: null,
+        sa_bands: null,
+        locked_lte_bands: null,
+        locked_nsa_bands: null,
+        locked_sa_bands: null,
+        currentNetworkMode: "-",
+        updatedLockedBands: null,
+        cellLockStatus: "unknown",
+        bands: "Obtain the frequency band ...",
+        isGettingBands: false,
+        rawdata: null,
+        pdpType: "-",
+        newPdpType: null,
+        nrModeControlCurrent: null,
+        nrModeControlNew: null,
+        _bandsFetchInFlight: null,
+        _initialized: false,
+        _currentSettingsFetchInFlight: null,
+        model: "-",
+        _atQueue: Promise.resolve(),
+        _modelFetchInFlight: null,
+
+        // ---------- 工具函数 ----------
+        sleep(ms) { return new Promise(r => setTimeout(r, ms)); },
+        async startModalCountdown(seconds = 1) {
+          this.showModal = true;
+          this.countdown = seconds;
+          while (this.countdown > 0) {
+            await this.sleep(1000);
+            this.countdown--;
+          }
+          this.showModal = false;
+        },
+
+        // 串行化 AT 命令，确保请求顺序 = 响应顺序，避免并发串扰
+        async sendATcommand(atcmd) {
+          // 统一在队列中执行
+          this._atQueue = this._atQueue.then(async () => {
+            try {
+              const url = "/cgi-bin/get_atcommand?" + new URLSearchParams({ atcmd });
+              const response = await fetch(url, { method: 'GET' });
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              const data = await response.text();
+              return data;
+            } catch (error) {
+              console.error("error:", error);
+              throw error;
+            }
+          });
+          // 返回当前这次入队任务的结果
+          return this._atQueue;
+        },
+
+        // ---------- 业务逻辑 ----------
+
+        async getSupportedBands() {
+          // 如果请求正在进行中，直接返回
+          if (this._bandsFetchInFlight) return this._bandsFetchInFlight;
+
+          // 启动请求并标记请求进行中
+          const atcmd = 'AT+QNWPREFCFG="lte_band";+QNWPREFCFG= "nsa_nr5g_band";+QNWPREFCFG= "nr5g_band"';
+          this.isGettingBands = true;
+
+          this._bandsFetchInFlight = this.sendATcommand(atcmd)
+            .then(raw => {
+              this.rawdata = raw;
+              this.parseLockedBands(raw);
+            })
+            .finally(() => {
+              this.isGettingBands = false;
+              this._bandsFetchInFlight = null; // 清空请求标记
+            });
+
+          return this._bandsFetchInFlight;
+        },
+        parseLockedBands(rawdata) {
+          const regex = /"([^"]+)",([0-9:]+)/g;
+          const CFG_bands = {};
+          let match;
+          while ((match = regex.exec(rawdata)) !== null) {
+            const bandType = match[1];
+            const numbers = match[2].split(":").map(Number).filter(n => !Number.isNaN(n));
+            CFG_bands[bandType] = numbers;
+          }
+
+          // 支持频段（保持与现有行为一致）
+          const bm = band_map.getBandsForModel(this.model, band_map.DEFAULTS);
+          this.lte_bands = bm.lte;
+          this.nsa_bands = bm.nsa;
+          this.sa_bands = bm.sa;
+
+          this.locked_lte_bands = (CFG_bands.lte_band || []).join(":");
+          this.locked_nsa_bands = (CFG_bands.nsa_nr5g_band || []).join(":");
+          this.locked_sa_bands = (CFG_bands.nr5g_band || []).join(":");
+
+          // 渲染复选框
+          populateCheckboxes(
+            this.lte_bands,
+            this.nsa_bands,
+            this.sa_bands,
+            this.locked_lte_bands,
+            this.locked_nsa_bands,
+            this.locked_sa_bands,
+            this
+          );
+
+          // 复选框事件 + 初始状态同步
+          addCheckboxListeners(this);
+          this.trackCheckboxChanges();
+          updateButtonText();
+        },
+
+        async init() {
+          // 先解绑，避免初始化时触发 change 事件
+          const select = document.getElementById("networkModeBand");
+          select.replaceWith(select.cloneNode(true)); // 重新替换 select 元素，确保不会触发 change
+          const select2 = document.getElementById("networkModeBand");
+
+          // 初始化时，禁止用户操作（还没有准备好）
+          this._initialized = false;
+
+          await this.getModel();          // 先确定型号
+          await this.getSupportedBands(); // 再渲染频段
+          await this.getCurrentSettings(); // 获取当前设置
+
+          // 初始化完成后，允许处理用户的网络模式更改
+          this._initialized = true;
+
+          // 只在初始化完成后响应用户更改
+          select2.addEventListener("change", async () => {
+            if (!this._initialized) return; // 确保初始化完成后再响应
+            await this.getSupportedBands();  // 用户手动切换时获取频段
+          });
+        },
+
+        trackCheckboxChanges() {
+          const selectedMode = document.getElementById("networkModeBand").value;
+          const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+          const newCheckedValues = [];
+          checkboxes.forEach(cb => { if (cb.checked) newCheckedValues.push(cb.value); });
+          this.currentNetworkMode = selectedMode;
+          this.updatedLockedBands = newCheckedValues;
+        },
+
+        async getCurrentSettings() {
+          // 如果请求正在进行中，直接返回
+          if (this._currentSettingsFetchInFlight) return this._currentSettingsFetchInFlight;
+
+          // 启动请求并标记请求进行中
+          const atcmd = 'AT+QUIMSLOT?;+QNWPREFCFG="mode_pref";+QNWPREFCFG="nr5g_disable_mode";+QCAINFO;+CGDCONT?;+CGCONTRDP=1;+QNWLOCK="common/4g";+QNWLOCK="common/5g"';
+          this.isGettingBands = true;
+
+          this._currentSettingsFetchInFlight = this.sendATcommand(atcmd)
+            .then(raw => {
+              const settings = parseCurrentSettings(raw);
+              this.apn = settings.apn;
+              this.cellLockStatus = settings.cellLockStatus;
+              this.prefNetwork = settings.prefNetwork;
+              this.bands = settings.bands || '-';
+
+              const mCtl = raw.match(/\+QNWPREFCFG:\s*"nr5g_disable_mode"\s*,\s*([0-2])/);
+              this.nrModeControlCurrent = mCtl ? mCtl[1] : null;
+
+              this.nrModeControlNew = null; // 清空“新值”
+
+              const m = raw.match(/\+CGDCONT:\s*1,"([^"]+)","([^"]*)"/);
+              if (m) {
+                this.pdpType = m[1];
+                if (this.apn === '-' || !this.apn) this.apn = m[2] || '-';
+              }
+            })
+            .finally(() => {
+              this.isGettingBands = false;
+              this._currentSettingsFetchInFlight = null; // 清空请求标记
+            });
+
+          return this._currentSettingsFetchInFlight;
+        },
+
+        async lockSelectedBands() {
+          const selectedMode = this.currentNetworkMode;
+          const newCheckedValues = this.updatedLockedBands;
+          let atcmd;
+
+          if (!selectedMode || !newCheckedValues || newCheckedValues.length === 0) {
+            alert("No frequency band has been selected. Please select at least one frequency band!");
+            return;
+          }
+
+          if (selectedMode === "LTE") {
+            atcmd = `AT+QNWPREFCFG="lte_band",${newCheckedValues.join(":")}`;
+          } else if (selectedMode === "NSA") {
+            atcmd = `AT+QNWPREFCFG="nsa_nr5g_band",${newCheckedValues.join(":")}`;
+          } else if (selectedMode === "SA") {
+            atcmd = `AT+QNWPREFCFG="nr5g_band",${newCheckedValues.join(":")}`;
+          } else {
+            alert("The selected network mode is invalid");
+            return;
+          }
+
+          await this.sendATcommand(atcmd);
+          await this.startModalCountdown(3);
+          await this.init(); // 刷新状态
+        },
+
+        async resetBandLocking() {
+          const atcmd = `AT+QNWPREFCFG="lte_band",${this.lte_bands};+QNWPREFCFG= "nsa_nr5g_band",${this.nsa_bands};+QNWPREFCFG= "nr5g_band",${this.sa_bands}`;
+          await this.sendATcommand(atcmd);
+          await this.startModalCountdown(3);
+          await this.init();
+        },
+
+        async saveChanges() {
+          const newApn = this.newApn;
+          const prefNetworkMode = this.prefNetworkMode;
+
+          let atAPN = "", ATNetwork = "", ATNRMode = "";
+
+          const wantType = this.newPdpType || this.pdpType;
+          const validTypes = ['IP', 'IPV6', 'IPV4V6'];
+          const safeType = validTypes.includes(wantType) ? wantType : 'IPV4V6';
+
+          const desiredApn = (newApn !== null && newApn !== '') ? newApn : (this.apn !== '-' ? this.apn : '');
+
+          if (this.newPdpType !== null || newApn !== null) {
+            atAPN = `+CGDCONT=1,"${safeType}","${desiredApn}";`;
+          }
+          if (this.nrModeControlNew !== null && this.nrModeControlNew !== this.nrModeControlCurrent) {
+            ATNRMode = `+QNWPREFCFG="nr5g_disable_mode",${this.nrModeControlNew};`;
+          }
+          if (prefNetworkMode !== null) {
+            ATNetwork = `+QNWPREFCFG="mode_pref",${prefNetworkMode};`;
+          }
+
+          const atcmd = `AT+${atAPN}${ATNetwork}${ATNRMode}`.replace("++", "+");
+          if (atcmd === "AT+") {
+            alert("No changes have been made");
+            return;
+          }
+
+          await this.sendATcommand(atcmd);
+          await this.startModalCountdown(3);
+          await this.init();
+        },
+
+        async getModel() {
+          if (this.model && this.model !== "-") return this.model;
+          if (this._modelFetchInFlight) return this._modelFetchInFlight;
+
+          const parseModel = (raw) => {
+            const lines = (raw || "")
+              .split(/\r?\n/)
+              .map(s => s.trim())
+              .filter(Boolean);
+
+            // 丢掉回显 / OK / 带前缀提示 / 明确 ERROR
+            const candidates = lines.filter(s =>
+              s.toUpperCase() !== "OK" &&
+              s.toUpperCase() !== "ERROR" &&
+              !/^AT\+/.test(s) &&
+              !/^\+GMM[:]?/i.test(s)
+            );
+
+            // 选第一条“像型号”的：不含空格、不以 AT+/+/OK/ERROR 开头
+            const m = candidates.find(s => /^[A-Za-z0-9._-]+$/.test(s));
+            return m || null;
+          };
+
+          this._modelFetchInFlight = (async () => {
+            const raw = await this.sendATcommand("AT+GMM");
+
+            const parsed = parseModel(raw);
+            if (parsed) {
+              this.model = parsed;
+            } else {
+              // 解析失败：保留原值，不覆盖为无效字符串
+              console.warn("[GMM] No valid model parsed, retaining existing model:", this.model);
+            }
+            this._modelFetchInFlight = null;
+            return this.model;
+          })();
+
+          return this._modelFetchInFlight;
+        },
+
+        async cellLockEnableLTE() {
+          const cellNum = this.cellNum;
+          if (cellNum === null) {
+            alert("Please enter the number of cells to be locked");
+            return;
+          }
+
+          const pairs = [
+            { earfcn: this.earfcn1, pci: this.pci1 },
+            { earfcn: this.earfcn2, pci: this.pci2 },
+            { earfcn: this.earfcn3, pci: this.pci3 },
+            { earfcn: this.earfcn4, pci: this.pci4 },
+            { earfcn: this.earfcn5, pci: this.pci5 },
+            { earfcn: this.earfcn6, pci: this.pci6 },
+            { earfcn: this.earfcn7, pci: this.pci7 },
+            { earfcn: this.earfcn8, pci: this.pci8 },
+            { earfcn: this.earfcn9, pci: this.pci9 },
+            { earfcn: this.earfcn10, pci: this.pci10 },
+          ].filter(p => p.earfcn !== null && p.pci !== null);
+
+          if (pairs.length === 0) {
+            alert("Please enter at least one valid pair of earfcn and pci");
+            return;
+          }
+
+          const atcmd = `AT+QNWLOCK="common/4g",${cellNum},${pairs.map(p => `${p.earfcn},${p.pci}`).join(",")}`;
+          await this.sendATcommand(atcmd);
+          await this.startModalCountdown(3);
+        },
+
+        async cellLockEnableNR() {
+          const { earfcn1: earfcn, pci1: pci, scs, band } = this;
+          if (earfcn === null || pci === null || scs === null || band === null) {
+            alert("Please enter all required fields");
+            return;
+          }
+          const atcmd = `AT+QNWLOCK="common/5g",${pci},${earfcn},${scs},${band}`;
+          await this.sendATcommand(atcmd);
+          await this.startModalCountdown(3);
+        },
+
+        async cellLockDisableLTE() {
+          const atcmd = 'AT+QNWLOCK="common/4g",0';
+          await this.sendATcommand(atcmd);
+          await this.startModalCountdown(3);
+        },
+
+        async cellLockDisableNR() {
+          const atcmd = 'AT+QNWLOCK="common/5g",0';
+          await this.sendATcommand(atcmd);
+          await this.startModalCountdown(3);
+        },
+      };
+    }
+
+    function addCheckboxListeners(cellLock) {
+      // 移除现有事件监听器
+      document.querySelectorAll('input[type="checkbox"]').forEach(function (checkbox) {
+        checkbox.removeEventListener("change", cellLock.trackCheckboxChanges);
+      });
+      // 添加新事件监听器
+      document.querySelectorAll('input[type="checkbox"]').forEach(function (checkbox) {
+        checkbox.addEventListener("change", function () {
+          cellLock.trackCheckboxChanges();
+          updateButtonText();
+        });
+      });
+    }
+
+    // 更新按钮文本的函数
+    function updateButtonText() {
+      const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+      const button = document.getElementById("uncheckAll");
+      if (!button) return;
+      let allChecked = true;
+      checkboxes.forEach(cb => { if (!cb.checked) allChecked = false; });
+      button.textContent = allChecked ? "Deselect" : "Select all";
+    }
+
+    // 取消/全选复选框的函数（保留原有行为）
+    document.addEventListener('DOMContentLoaded', function () {
+      const btn = document.getElementById("uncheckAll");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        let allChecked = true;
+        checkboxes.forEach(cb => { if (!cb.checked) allChecked = false; });
+        const targetChecked = !allChecked; // 若全选则取消，否则全选
+        checkboxes.forEach(function (checkbox) {
+          checkbox.checked = targetChecked;
+          checkbox.dispatchEvent(new Event('change'));
+        });
+        this.textContent = targetChecked ? "Deselect" : "Select all";
+      });
+    });
+  </script>
+  <script src="js/dark-mode.js" defer></script>
+</body>
+
+</html>

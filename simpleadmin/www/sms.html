@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Simple Admin</title>
+	<!-- Import custom and Bootstrap styles -->
+	<link rel="stylesheet" href="css/styles.css" />
+	<link rel="stylesheet" href="css/bootstrap.min.css" />
+	<!-- Website icon -->
+	<link rel="icon" href="favicon.ico" />
+	<!-- Import Bootstrap and Alpine.js scripts -->
+	<script src="js/bootstrap.bundle.min.js"></script>
+	<script src="js/alpinejs.min.js" defer></script>
+</head>
+
+<body>
+	<main>
+		<div class="container my-4" x-data="fetchSMS()">
+			<nav class="navbar navbar-expand-lg mt-2">
+				<div class="container-fluid">
+					<a class="navbar-brand" href="/"><span class="mb-0 h4">Simple Admin</span></a>
+					<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+						aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+						<span class="navbar-toggler-icon"></span>
+					</button>
+					<div class="collapse navbar-collapse" id="navbarText">
+						<ul class="navbar-nav me-auto mb-2 ml-4 mb-lg-0">
+							<li class="nav-item">
+								<a class="nav-link" href="/">Home</a>
+							</li>
+							<li class="nav-item">
+								<a class="nav-link" href="/network.html">Network</a>
+							</li>
+							<li class="nav-item">
+								<a class="nav-link" href="/settings.html">Settings</a>
+							</li>
+							<li class="nav-item">
+								<a class="nav-link active" href="/sms.html" aria-current="page">SMS</a>
+							</li>
+							<li class="nav-item">
+								<a class="nav-link" href="/console">Console</a>
+							</li>
+							<li class="nav-item">
+								<a class="nav-link" href="/deviceinfo.html">Device Info</a>
+							</li>
+						</ul>
+						<span class="navbar-text">
+							<button class="btn btn-link text-reset" id="darkModeToggle">Dark Mode</button>
+						</span>
+					</div>
+				</div>
+			</nav>
+			<div class="row mt-5 mb-3">
+				<div class="col">
+					<div class="card">
+						<div class="card-header">Inbox</div>
+						<div class="card-body">
+							<div class="card-text">
+								<div class="col">
+									<div style="max-height: 400px; overflow-y: scroll; overflow-x: hidden;">
+										<div x-show="isLoading">
+											<h4>Reading SMS...</h4>
+										</div>
+										<table class="table table-hover border-success" x-show="!isLoading">
+											<tbody>
+												<!-- Display when there are no messages -->
+												<template x-if="messages.length === 0 && !isLoading">
+													<div>
+														<p>No messages</p>
+													</div>
+												</template>
+												<!-- Loop to display SMS messages -->
+												<template x-for="(message, index) in messages" :key="index">
+													<tr>
+														<td>
+															<div class="form-check">
+																<input class="form-check-input" type="checkbox"
+																	:value="index" x-model="selectedMessages">
+																<div class="row column-gap-1 mb-2">
+																	<div class="col-md-3">
+																		<p>Sender: <span x-text="senders[index]"></span>
+																		</p>
+																	</div>
+																	<div class="col">
+																		<p>Date and Time: <span x-text="dates[index]"></span>
+																		</p>
+																	</div>
+																</div>
+																<div class="col-md-9">
+																	<p x-text="message.text"></p>
+																</div>
+															</div>
+														</td>
+													</tr>
+												</template>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+						<!-- Add condition, only show the select all checkbox and area when the messages array has content -->
+						<div class="card-body border-top" x-show="messages.length > 0">
+							<div class="form-check">
+								<input id="selectAllCheckbox" class="form-check-input" type="checkbox"
+									@change="toggleAll($event)">
+								<label class="form-check-label">Select All</label>
+							</div>
+						</div>
+						<div class="card-footer">
+							<div class="d-grid gap-2 d-md-flex justify-content-md-start">
+								<!-- Refresh button -->
+								<button class="btn btn-success" type="button" @click="init()">Refresh</button>
+								<!-- Delete selected SMS button -->
+								<button class="btn btn-danger" type="button" @click="deleteSelectedSMS()">Delete</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row mt-5 mb-3">
+				<div class="col">
+					<div class="card">
+						<div class="card-header">Send Message</div>
+						<div class="card-body">
+							<div class="mb-3">
+								<label for="phoneNumber" class="form-label">Recipient Number</label>
+								<input type="text" class="form-control" id="phoneNumber" x-model="phoneNumber"
+									placeholder="Enter recipient number">
+							</div>
+							<div class="mb-3">
+								<label for="messageToSend" class="form-label">Message Content</label>
+								<textarea class="form-control" id="messageToSend" rows="3" x-model="messageToSend"
+									placeholder="Enter message content"></textarea>
+							</div>
+							<div id="notification" class="alert" style="display: none;"></div>
+							<div class="d-flex justify-content-between align-items-center">
+								<button class="btn btn-primary" @click="sendSMS()">Send SMS</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+		</div>
+	</main>
+	<script src="js/dark-mode.js"></script>
+	<script>
+
+		function fetchSMS() {
+			return {
+				isLoading: false,
+				atCommandResponse: "",
+				messages: [],
+				senders: [],
+				dates: [],
+				selectedMessages: [],
+				phoneNumber: '',
+				messageToSend: '',
+				messageIndices: [], // Ensure initializing messageIndices array
+
+				// Clear existing data
+				clearData() {
+					this.messages = [];
+					this.senders = [];
+					this.dates = [];
+					this.selectedMessages = [];
+					this.messageIndices = [];
+					const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+					if (selectAllCheckbox) {
+						selectAllCheckbox.checked = false;
+					}
+				},
+				// Request to fetch SMS
+				requestSMS() {
+					this.isLoading = true;
+					fetch(`/cgi-bin/get_atcommand?${new URLSearchParams({ atcmd: "AT+CSMS=1;+CSDH=0;+CNMI=2,1,0,0,0;+CMGF=1;+CSCA?;+CSMP=17,167,0,8;+CPMS=\"ME\",\"ME\",\"ME\";+CSCS=\"UCS2\";+CMGL=\"ALL\"" })}`)
+						.then(response => response.text())
+						.then(data => {
+							this.atCommandResponse = data.split('\n')
+								.filter(line => line.trim() !== "OK" && line.trim() !== "")
+								.join('\n');
+						})
+						.finally(() => {
+							this.isLoading = false;
+							this.clearData();
+							this.parseSMSData(this.atCommandResponse);
+						});
+				},
+
+				// Method to parse SMS data
+				parseSMSData(data) {
+					const cmglRegex = /^\s*\+CMGL:\s*(\d+),"[^"]*","([^"]*)"[^"]*,"([^"]*)"/gm;
+					const cscaRegex = /^\s*\+CSCA:\s*"([^"]*)"/gm;
+					this.messageIndices = [];
+					this.serviceCenters = [];
+					this.dates = [];
+					this.senders = [];
+					this.messages = [];
+
+					let match;
+					let lastIndex = null;
+					while ((match = cmglRegex.exec(data)) !== null) {
+						const index = parseInt(match[1]);
+						const senderHex = match[2];
+						const sender = senderHex.startsWith("003") ? this.convertHexToText(senderHex) : senderHex;
+
+						const dateStr = match[3].replace(/\+\d{2}$/, "");
+						const date = this.parseCustomDate(dateStr);
+
+						if (Number.isNaN(date.getTime())) {
+							console.error(`Invalid Date: ${dateStr}`);
+							continue;
+						}
+
+						const startIndex = cmglRegex.lastIndex;
+						const endIndex = data.indexOf("+CMGL:", startIndex) !== -1 ? data.indexOf("+CMGL:", startIndex) : data.length;
+						const messageHex = data.substring(startIndex, endIndex).trim();
+						const message = /^[0-9a-fA-F]+$/.test(messageHex) ? this.convertHexToText(messageHex) : messageHex;
+
+						if (lastIndex !== null && this.messages[lastIndex].sender === sender && Math.abs((date - this.messages[lastIndex].date) / 1000) <= 1) {
+							this.messages[lastIndex].text += message;
+							this.messages[lastIndex].indices.push(index);
+							this.dates[lastIndex] = this.formatDate(date);
+						} else {
+							this.messageIndices.push([index]);
+							this.senders.push(sender);
+							this.dates.push(this.formatDate(date));
+							this.messages.push({ text: message, sender: sender, date: date, indices: [index] });
+							lastIndex = this.messages.length - 1;
+						}
+					}
+
+					while ((match = cscaRegex.exec(data)) !== null) {
+						const serviceCenterHex = match[1];
+						const serviceCenter = this.convertHexToText(serviceCenterHex);
+						this.serviceCenters.push(serviceCenter);
+					}
+				},
+
+				// Convert hex to text (assuming UTF-16BE encoding)
+				convertHexToText(hex) {
+					const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+					return new TextDecoder('utf-16be').decode(bytes);
+				},
+
+				// Custom date parser function
+				parseCustomDate(dateStr) {
+					const [datePart, timePart] = dateStr.split(',');
+					const [day, month, year] = datePart.split('/').map(part => parseInt(part, 10));
+					const [hour, minute, second] = timePart.split(':').map(part => parseInt(part, 10));
+
+					// Convert the date to a standard format date object
+					return new Date(Date.UTC(2000 + year, month - 1, day, hour, minute, second));
+				},
+
+				// Custom date formatting function
+				formatDate(date) {
+					const year = date.getUTCFullYear() - 2000;
+					const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+					const day = date.getUTCDate().toString().padStart(2, '0');
+					const hour = date.getUTCHours().toString().padStart(2, '0');
+					const minute = date.getUTCMinutes().toString().padStart(2, '0');
+					const second = date.getUTCSeconds().toString().padStart(2, '0');
+					return `${day}/${month}/${year},${hour}:${minute}:${second}`;
+				},
+
+				// Delete selected SMS
+				deleteSelectedSMS() {
+					if (this.selectedMessages.length === 0) {
+						console.warn("No messages selected");
+						return;
+					}
+
+					if (!this.messageIndices || this.messageIndices.length === 0) {
+						console.error("SMS indices not properly initialized or empty");
+						return;
+					}
+
+					// Check if all are selected
+					const isAllSelected = this.selectedMessages.length === this.messages.length;
+
+					if (isAllSelected) {
+						// If all selected, delete all messages
+						this.deleteAllSMS();
+					} else {
+						// Otherwise, delete selected messages
+						const indicesToDelete = [];
+						this.selectedMessages.forEach(index => {
+							indicesToDelete.push(...this.messages[index].indices);
+						});
+
+						if (indicesToDelete.length === 0) {
+							console.warn("No valid SMS indices");
+							return;
+						}
+
+						// Build AT command
+						const atCommands = indicesToDelete.map((index, i) => i === 0 ? `AT+CMGD=${index}` : `+CMGD=${index}`).join(';');
+						fetch(`/cgi-bin/get_atcommand?${new URLSearchParams({ atcmd: atCommands })}`)
+							.finally(() => {
+								this.selectedMessages = [];
+								this.requestSMS();
+							});
+					}
+				},
+				// Delete all SMS
+				deleteAllSMS() {
+					fetch(`/cgi-bin/get_atcommand?${new URLSearchParams({ atcmd: "AT+CMGD=,4" })}`)
+						.finally(() => {
+							this.init();
+						});
+				},
+				// Send SMS
+				encodeUCS2(input) {
+					let output = '';
+					for (let i = 0; i < input.length; i++) {
+						const hex = input.charCodeAt(i).toString(16).toUpperCase().padStart(4, '0');
+						output += hex;
+					}
+					return output;
+				},
+
+				async sendSMS() {
+					// Basic validation
+					if (!this.phoneNumber || !this.messageToSend) {
+						this.showNotification('Number or content cannot be empty', 'warning');
+						return;
+					}
+
+					// Optional: Check SIM status (do not send if no SIM)
+					try {
+						const simResp = await fetch(`/cgi-bin/get_atcommand?${new URLSearchParams({ atcmd: 'AT+CPIN?' })}`);
+						const simText = await simResp.text();
+						if (/\+CME ERROR:\s*10/.test(simText) || /SIM\s*not\s*inserted/i.test(simText)) {
+							this.showNotification('No SIM card detected', 'danger');
+							return;
+						}
+					} catch { }
+
+					// Normalize number (avoid adding country code again)
+					const normalized = this.normalizeNumber(this.phoneNumber);    // See next function
+					const encodedPhoneNumber = this.encodeUCS2(normalized);
+
+					// Split message: UCS2 and includes UDH, recommended 67 characters/segment
+					const messageSegments = this.splitMessage(this.messageToSend, 67);
+					const uid = Math.floor(Math.random() * 255);
+					const totalSegments = messageSegments.length;
+
+					let allSegmentsSent = true;
+					let lastError = null;
+
+					for (let i = 0; i < totalSegments; i++) {
+						const segment = messageSegments[i];
+						const encodedMessage = this.encodeUCS2(segment);
+						const currentSegment = i + 1;
+						const Command = `${uid},${currentSegment},${totalSegments}`;
+
+						const params = new URLSearchParams({ number: encodedPhoneNumber, msg: encodedMessage, Command });
+
+						try {
+							const response = await fetch(`/cgi-bin/send_sms?${params.toString()}`);
+							if (!response.ok) {
+								allSegmentsSent = false;
+								lastError = `HTTP ${response.status}`;
+								break;
+							}
+							const data = await response.text();
+							const res = this.parseAtResult(data);
+							if (!res.ok) {
+								allSegmentsSent = false;
+								lastError = res.code ? `${res.kind} ${res.code}` : res.kind;
+								break;
+							}
+						} catch (e) {
+							allSegmentsSent = false;
+							lastError = e?.message || 'NETWORK';
+							break;
+						}
+					}
+
+					if (allSegmentsSent) {
+						this.showNotification('SMS sent successfully!', 'success');
+						// Optional: Refresh inbox or clear input
+						// this.requestSMS();
+					} else {
+						this.showNotification(`SMS sending failed: ${lastError || 'Unknown error'}`, 'danger');
+					}
+				},
+
+				normalizeNumber(num) {
+					let n = (num || '').toString().replace(/[^\d+]/g, ''); // Remove spaces/dashes
+					if (n.startsWith('00')) n = '+' + n.slice(2);
+					// Already starts with + do not add again
+					if (!n.startsWith('+')) {
+						// Guess the country code from service center, take the first 3 digits (e.g., +86)
+						const cc = this.serviceCenters?.[0]?.match(/^\+?\d{2,3}/)?.[0] || '+86';
+						n = (cc.startsWith('+') ? cc : ('+' + cc)) + n;
+					}
+					return n;
+				},
+
+				splitMessage(message, length) {
+					const segments = [];
+					for (let i = 0; i < message.length; i += length) {
+						segments.push(message.substring(i, i + length));
+					}
+					return segments;
+				},
+
+				parseAtResult(text) {
+					const t = (text || '').replace(/\r/g, '').trim();
+					const cms = t.match(/\+CMS ERROR:\s*(\d+)/);
+					if (cms) return { ok: false, kind: 'CMS', code: cms[1], raw: t };
+					const cme = t.match(/\+CME ERROR:\s*(\d+)/);
+					if (cme) return { ok: false, kind: 'CME', code: cme[1], raw: t };
+					if (/\bERROR\b/.test(t)) return { ok: false, kind: 'ERROR', raw: t };
+					if (/\+CMGS:/.test(t) || /\bOK\b/.test(t)) return { ok: true, raw: t };
+					return { ok: false, kind: 'UNKNOWN', raw: t };
+				},
+
+				showNotification(message, type = 'info') {
+					const n = document.getElementById('notification');
+					n.innerText = message;
+					n.className = `alert alert-${type}`;
+					n.style.display = 'block';
+					setTimeout(() => { n.style.display = 'none'; }, 3000);
+				},
+
+				// Initialization
+				init() {
+					this.clearData();
+					this.requestSMS();
+				},
+
+				// Select All/Unselect All
+				toggleAll(event) {
+					this.selectedMessages = event.target.checked ? this.messages.map((_, index) => index) : [];
+				}
+			};
+		}
+	</script>
+</body>
+
+</html>

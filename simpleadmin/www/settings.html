@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Admin</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <!-- Logo -->
+  <link rel="simpleadmin-logo" href="favicon.ico" />
+  <!-- Import Bootstrap Javascript -->
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script src="js/alpinejs.min.js" defer></script>
+</head>
+
+<body>
+  <main>
+    <div class="container my-4" x-data="simpleSettings()">
+      <nav class="navbar navbar-expand-lg mt-2">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="/"><span class="mb-0 h4">Simple Admin</span></a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+              <li class="nav-item">
+                <a class="nav-link" href="/">Home</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/network.html">Network</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link active" href="/settings.html" aria-current="page">Settings</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/sms.html">SMS</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/console">Console</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/deviceinfo.html">Device Info</a>
+              </li>
+            </ul>
+            <span class="navbar-text">
+              <button class="btn btn-link text-reset" id="darkModeToggle">
+                Dark Mode
+              </button>
+            </span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="row mt-5 mb-3">
+        <div class="col">
+          <div class="card">
+            <div class="card-header">AT Terminal</div>
+            <div class="card-body">
+              <div class="card-text">
+                <div class="form-floating mb-4">
+                  <!-- AT Command Output -->
+                  <textarea class="form-control" placeholder="ATI" id="atOutputBox" style="height: 210px"
+                    x-text="atCommandResponse" readonly>
+                    <label for="floatingTextarea">ATI</label>
+                    </textarea>
+                </div>
+                <div>
+                  <div class="col-md-4 mb-3">
+                    <label for="exampleInputEmail1" class="form-label">AT Command</label>
+                    <input type="text" class="form-control" id="atCommandInput" placeholder="ATI"
+                      aria-describedby="atCommandInput" x-model="atcmd" @keydown.enter="sendATCommand()" />
+                    <div id="atCommandInputHelper" class="form-text">
+                      Separate multiple commands with a semicolon (;), e.g., AT+CFUN?;+CCID
+                    </div>
+                  </div>
+                  <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                    <button class="btn btn-primary me-md-2" type="button" @click="sendATCommand()"
+                      :disabled="isLoading">
+                      Submit
+                    </button>
+                    <button class="btn btn-danger" type="button" @click="clearResponses()" :disabled="isClean">
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row gap-3 mt-4">
+        <div class="col">
+          <form>
+            <div class="card">
+              <div class="card-header">One-Click Tools</div>
+              <div class="card-body">
+                <div class="card-text">
+                  <div class="table-responsive">
+                    <table class="table">
+                      <tbody>
+                        <tr>
+                          <th scope="row">Reboot</th>
+                          <td>
+                            <button type="button" class="btn btn-danger" @click="showRebootModal()"
+                              :disabled="isLoading" style="white-space: nowrap;">
+                              Reboot
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Reset AT&F</th>
+                          <td>
+                            <button type="button" class="btn btn-danger" @click="resetATCommands()"
+                              :disabled="isLoading" style="white-space: nowrap;">
+                              Reset
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">IP Pass-through</th>
+                          <td>
+                            <select class="form-select" id="ipPassModeSelect" x-model="ipPassMode">
+                              <option selected>Pass-through Mode</option>
+                              <option value="ETH">ETH</option>
+                              <option value="USB">USB (ECM/RNDIS)</option>
+                            </select>
+                          </td>
+                          <td>
+                            <button type="button" class="btn btn-primary" @click="ipPassThroughEnable()"
+                              x-show="ipPassStatus === false" :disabled="isLoading" style="white-space: nowrap;">
+                              Enable
+                            </button>
+                            <button type="button" class="btn btn-danger" @click="ipPassThroughDisable()"
+                              x-show="ipPassStatus === true" :disabled="isLoading" style="white-space: nowrap;">
+                              Disable
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">USB Protocol</th>
+                          <td>
+                            <select class="form-select" id="usbNetModeSelect" x-model="usbNetMode">
+                              <option selected x-text="currentUsbNetMode"></option>
+                              <option value="RMNET">RMNET</option>
+                              <option value="ECM">ECM (Recommended)</option>
+                              <option value="MBIM">MBIM</option>
+                              <option value="RNDIS">RNDIS</option>
+                            </select>
+                          </td>
+                          <td>
+                            <button type="button" class="btn btn-primary" @click="usbNetModeChanger()"
+                              :disabled="isLoading" style="white-space: nowrap;">
+                              Change
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">DMZ Settings</th>
+                          <td>
+                            <input type="text" class="form-control" placeholder="DMZ IP Address" x-model="dmzIP" />
+                          </td>
+                          <td>
+                            <!-- Enable Button -->
+                            <button type="button" class="btn btn-primary" @click="setDMZEnable()"
+                              x-show="dmzMode === '0'" :disabled="isLoading" style="white-space: nowrap;">
+                              Enable
+                            </button>
+                            <!-- Disable Button -->
+                            <button type="button" class="btn btn-danger" @click="setDMZDisable()"
+                              x-show="dmzMode === '1'" :disabled="isLoading" style="white-space: nowrap;">
+                              Disable
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">LAN IP Settings</th>
+                          <td>
+                            <!-- Gateway IP Address -->
+                            <div class="row g-2"> <!-- g-2 adds spacing -->
+                              <div class="col-md-6">
+                                <input type="text" class="form-control" placeholder="Gateway IP Address" x-model="lanGwIp" />
+                              </div>
+                              <!-- Start IP Address (only last part shown) -->
+                              <div class="col-md-3">
+                                <input type="text" class="form-control" placeholder="Start Address" x-model="lanIpStart" />
+                              </div>
+                              <!-- End IP Address (only last part shown) -->
+                              <div class="col-md-3">
+                                <input type="text" class="form-control" placeholder="End Address" x-model="lanIpEnd" />
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <!-- Save Button -->
+                            <button type="button" class="btn btn-primary" @click="setLANIP()" :disabled="isLoading"
+                              style="white-space: nowrap;">
+                              Save
+                            </button>
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <th scope="row">DNS<sup>V6</sup></th>
+                          <td>
+                            <button type="button" class="btn btn-primary" @click="onBoardDNSV6ProxyEnable()"
+                              x-show="DNSV6ProxyStatus === false" :disabled="isLoading" style="white-space: nowrap;">
+                              Enable
+                            </button>
+                            <button type="button" class="btn btn-danger" @click="onBoardDNSV6ProxyDisable()"
+                              x-show="DNSV6ProxyStatus === true" :disabled="isLoading" style="white-space: nowrap;">
+                              Disable
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">DNS<sup>V4</sup></th>
+                          <td>
+                            <button type="button" class="btn btn-primary" @click="onBoardDNSV4ProxyEnable()"
+                              x-show="DNSV4ProxyStatus === false" :disabled="isLoading" style="white-space: nowrap;">
+                              Enable
+                            </button>
+                            <button type="button" class="btn btn-danger" @click="onBoardDNSV4ProxyDisable()"
+                              x-show="DNSV4ProxyStatus === true" :disabled="isLoading" style="white-space: nowrap;">
+                              Disable
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">Other Settings</div>
+            <div class="card-body">
+              <label for="TTLState" class="form-label">TTL Status and Value</label>
+              <div class="row">
+                <div class="col">
+                  <div class="p-3 text-primary-emphasis bg-primary-subtle border border-primary-subtle rounded-3"
+                    x-show="ttlStatus === true">
+                    TTL Activated
+                  </div>
+                  <div class="p-3 text-danger-emphasis bg-danger-subtle border border-danger-subtle rounded-3"
+                    x-show="ttlStatus === false">
+                    TTL Not Activated
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="p-3 text-info-emphasis bg-info-subtle border border-info-subtle rounded-3 mb-4"
+                    x-text="ttlvalue"></div>
+                </div>
+              </div>
+              <div class="card-text mb-3">
+                <div class="mb-4">
+                  <input type="text" class="form-control" id="ttlInput" placeholder="TTL Value" x-model="newTTL" />
+                  <div id="ttlValueHelper" class="form-text">
+                    Set TTL value to 0 to disable.
+                  </div>
+                </div>
+                <div class="d-grid gap-1">
+                  <button class="btn btn-primary" type="button" @click="setTTL()">
+                    Update
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reboot Loading Modal -->
+        <div class="modal-overlay" x-show="showModal">
+          <div class="loading-modal">
+            <div class="loading-text" style="display: flex; flex-direction: column">
+              <h3>This will reboot the modem.</h3>
+              <p style="margin-top: 0.5rem">Continue?</p>
+            </div>
+            <div class="d-grid gap-2 d-md-block">
+              <button class="btn btn-primary" type="button" @click="rebootDevice()">
+                Reboot
+              </button>
+              <button class="btn btn-danger" type="button" @click="closeModal()">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reboot Countdown Modal -->
+        <div class="modal-overlay" x-show="isRebooting">
+          <div class="loading-modal">
+            <div class="loader"></div>
+            <div class="loading-text" style="display: flex; flex-direction: column">
+              <h3>Rebooting...</h3>
+              <p style="margin-top: 0.5rem">
+                Please wait
+                <span x-text="countdown" style="font-weight: 500"></span>
+                seconds.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+  </main>
+  <script src="js/dark-mode.js"></script>
+  <script>
+    function simpleSettings() {
+      return {
+        isLoading: false,
+        showSuccess: false,
+        showError: false,
+        isClean: true,
+        showModal: false,
+        isRebooting: false,
+        atcmd: "",
+        fetchATCommand: "",
+        countdown: 0,
+        atCommandResponse: "",
+        currentSettingsResponse: "",
+        ttldata: null,
+        ttlvalue: 0,
+        ttlStatus: false,
+        newTTL: null,
+        ipPassMode: "unspecified",
+        ipPassStatus: false,
+        usbNetMode: "unspecified",
+        currentUsbNetMode: "unknown",
+        lanIpStart: "",  // 初始化 LAN IP 起始地址
+        lanIpEnd: "",    // 初始化 LAN IP 结束地址
+        lanGwIp: "",     // 初始化 网关 IP 地址
+        DNSV6ProxyStatus: true,
+        DNSV4ProxyStatus: true,
+        dmzMode: "0",
+        dmzIP: "",
+        isRebooted: true,
+
+        closeModal() {
+          this.showModal = false;
+        },
+
+        showRebootModal() {
+          this.showModal = true;
+        },
+
+        sendATCommand() {
+          if (!this.atcmd) {
+            this.atcmd = "ATI";
+          }
+          this.isLoading = true;
+          const encodedATCmd = encodeURIComponent(this.atcmd);
+          const url = `/cgi-bin/get_atcommand?atcmd=${encodedATCmd}`;
+
+          // ★ 返回 fetch 的 Promise，这样外层可以 .then(...)
+          return fetch(url)
+            .then((res) => {
+              if (!res.ok) {
+                throw new Error(`HTTP Error! status: ${res.status}`);
+              }
+              return res.text();
+            })
+            .then((data) => {
+              this.atCommandResponse = data;
+              this.isLoading = false;
+              this.isClean = false;
+              //this.fetchCurrentSettings();
+              return data; // ★ 把结果再传下去，链式调用更方便
+            })
+            .catch((error) => {
+              console.error("error: ", error);
+              this.showError = true;
+              this.isLoading = false;
+              throw error; // ★ 继续抛出，方便调用方捕获
+            });
+        },
+
+        clearResponses() {
+          this.atCommandResponse = "";
+          this.isClean = true;
+        },
+
+        rebootDevice() {
+          this.atcmd = "AT+CFUN=1,1";  // 发送重启命令
+          this.sendATCommand();  // 发送 AT+CFUN=1,1
+
+          this.atCommandResponse = "";
+          this.showModal = false;
+          this.isRebooting = true;
+          this.countdown = 40;
+          this.isRebooted = false;  // 重启标志位，表示设备尚未重启完成
+
+          // 进行倒计时
+          const interval = setInterval(() => {
+            this.countdown--;
+            if (this.countdown === 0) {
+              clearInterval(interval);
+              this.isRebooting = false;
+
+              // 给设备一些时间重启后再执行初始化
+              setTimeout(() => {
+                this.isRebooted = true;  // 设置标志为已重启
+                this.init();  // 重启后执行初始化（发送必要的 AT 命令）
+              }, 5000);  // 延迟 5 秒，以确保设备完全重启
+            }
+          }, 1000);
+        },
+
+        resetATCommands() {
+          this.atcmd = "AT&F";
+          this.sendATCommand();
+          //this.atcmd = "";
+          this.atCommandResponse = "";
+          this.showRebootModal();
+        },
+
+        ipPassThroughEnable() {
+          if (this.ipPassMode != "unspecified") {
+            if (this.ipPassMode == "ETH") {
+              this.atcmd =
+                'AT+QMAP="MPDN_RULE",0,1,0,1,1,"FF:FF:FF:FF:FF:FF"';
+              this.sendATCommand();
+            } else if (this.ipPassMode == "USB") {
+              this.atcmd =
+                'AT+QMAP="MPDN_RULE",0,1,0,3,1,"FF:FF:FF:FF:FF:FF"';
+              this.sendATCommand();
+            } else {
+              console.error("invalid IP passthrough mode");
+            }
+          } else {
+            console.error("unspecified IP passthrough mode");
+          }
+        },
+
+        ipPassThroughDisable() {
+          this.atcmd = 'AT+QMAP="MPDN_RULE",0;+QMAPWAC=1';
+          this.sendATCommand();
+        },
+
+        onBoardDNSV6ProxyEnable() {
+          this.atcmd = 'AT+QMAP="DHCPV6DNS","enable"';
+          this.sendATCommand().then(() => {
+            this.fetchCurrentSettings();
+          });
+        },
+        onBoardDNSV4ProxyEnable() {
+          this.atcmd = 'AT+QMAP="DHCPV4DNS","enable"';
+          this.sendATCommand().then(() => {
+            this.fetchCurrentSettings();
+          });
+        },
+
+        onBoardDNSV6ProxyDisable() {
+          this.atcmd = 'AT+QMAP="DHCPV6DNS","disable"';
+          this.sendATCommand().then(() => {
+            this.fetchCurrentSettings();
+          });
+        },
+        onBoardDNSV4ProxyDisable() {
+          this.atcmd = 'AT+QMAP="DHCPV4DNS","disable"';
+          this.sendATCommand().then(() => {
+            this.fetchCurrentSettings();
+          });
+        },
+
+
+        async usbNetModeChanger() {
+          if (this.usbNetMode === "unspecified") {
+            console.error("unspecified USB network mode");
+            return;
+          }
+
+          const map = { RMNET: 0, ECM: 1, MBIM: 2, RNDIS: 3 };
+          const code = map[this.usbNetMode];
+          if (code === undefined) {
+            console.log("USB Network mode is invalid");
+            return;
+          }
+
+          try {
+            this.atcmd = `AT+QCFG="usbnet",${code}`;
+            await this.sendATCommand();  // 等待设置成功
+            // 成功后只弹出确认重启的模态框
+            this.showRebootModal();
+          } catch (e) {
+            console.error("Settings usbnet failure:", e);
+          }
+        },
+
+        fetchCurrentSettings() {
+          if (!this.isRebooted) {
+            return;  // 如果设备还在重启，跳过
+          }
+          this.fetchATCommand =
+            'AT+QMAP="MPDN_RULE";+QMAP="DHCPV6DNS";+QCFG="usbnet";+QMAP="DMZ";+QMAP="LANIP";+QMAP="DHCPV4DNS"';
+          fetch(
+            "/cgi-bin/get_atcommand?" +
+            new URLSearchParams({
+              atcmd: this.fetchATCommand,
+            })
+          )
+            .then((res) => {
+              return res.text();
+            })
+            .then((data) => {
+              // 设置 currentSettingsResponse 的值
+              this.currentSettingsResponse = data;
+              const currentData = data.split("\n");
+
+              // 解析 MPDN_RULE（不区分大小写）
+              const testEthpass = currentData.find(line => /\+QMAP:\s*"MPDN_RULE",0,0,0,0,0/i.test(line));
+              this.ipPassStatus = testEthpass ? false : true;
+
+              // 解析 DHCPV6DNS
+              const testDNSV6Proxy = currentData.find(line => /\+QMAP:\s*"DHCPV6DNS","enable"/i.test(line));
+              this.DNSV6ProxyStatus = !!testDNSV6Proxy;
+
+              // 解析 DHCPV4DNS
+              const testDNSV4Proxy = currentData.find(line => /\+QMAP:\s*"DHCPV4DNS","enable"/i.test(line));
+              this.DNSV4ProxyStatus = !!testDNSV4Proxy;
+
+              // 解析 usbnet
+              const testUSBNet = currentData.find(line => /\+QCFG:\s*"usbnet",(\d)/i.test(line));
+              if (testUSBNet) {
+                const usbnetMatch = testUSBNet.match(/\+QCFG:\s*"usbnet",(\d)/i);
+                switch (usbnetMatch[1]) {
+                  case "0": this.currentUsbNetMode = "RMNET"; break;
+                  case "1": this.currentUsbNetMode = "ECM"; break;
+                  case "2": this.currentUsbNetMode = "MBIM"; break;
+                  case "3": this.currentUsbNetMode = "RNDIS"; break;
+                  default: this.currentUsbNetMode = "unknown";
+                }
+              }
+
+              // 解析 DMZ
+              const testDMZ = currentData.find(line => /\+QMAP:\s*"DMZ"/i.test(line));
+              if (testDMZ) {
+                const dmzMatch = testDMZ.match(/\+QMAP:\s*"DMZ",(\d),(\d),?(.+)?/i);
+                if (dmzMatch) {
+                  const mode = dmzMatch[1];
+                  const ip = dmzMatch[3] || '';
+                  this.dmzMode = mode === "1" ? "1" : "0";
+                  this.dmzIP = mode === "1" ? ip : "";
+                }
+              } else {
+                this.dmzMode = "0";
+                this.dmzIP = "";
+              }
+
+              // 解析 LANIP
+              const testLANIP = currentData.find(line => /\+QMAP:\s*"LANIP"/i.test(line));
+              if (testLANIP) {
+                const lanipMatch = testLANIP.match(/\+QMAP:\s*"LANIP",(\S+),(\S+),(\S+)/i);
+                if (lanipMatch) {
+                  const lanIpStartParts = lanipMatch[1].split('.');
+                  const lanIpEndParts = lanipMatch[2].split('.');
+                  const lanGwParts = lanipMatch[3].split('.');
+
+                  // 更新 LAN IP 起始和结束地址以及网关 IP 地址
+                  this.lanIpStart = lanIpStartParts[3];
+                  this.lanIpEnd = lanIpEndParts[3];
+                  this.lanGwIp = lanGwParts.join('.');
+                }
+              } else {
+                this.lanIpStart = "";
+                this.lanIpEnd = "";
+                this.lanGwIp = "";
+              }
+
+              // 清空 atcmd
+              //this.atcmd = "";
+            })
+            .catch((error) => {
+              console.error("error: ", error);
+              this.showError = true;
+            });
+        },
+
+        fetchTTL() {
+          fetch("/cgi-bin/get_ttl_status")
+            .then((res) => {
+              return res.json();
+            })
+            .then((data) => {
+              this.ttldata = data;
+              this.ttlStatus = this.ttldata.isEnabled;
+              this.ttlvalue = this.ttldata.ttl;
+              console.log("TTL Status: ", this.ttlStatus, "TTL Value: ", this.ttlvalue); // 日志：更新后的TTL状态和值
+            })
+            .catch((error) => {
+              console.error("Error fetching TTL status: ", error); // 日志：捕获错误
+            });
+        },
+
+        setTTL() {
+          const ttlValueWithoutLeadingZero = parseInt(this.newTTL, 10);
+
+          // 如果 ttlValueWithoutLeadingZero 是 null, 空字符串 "", 负值，或者大于 255，则退出
+          if (isNaN(ttlValueWithoutLeadingZero) || ttlValueWithoutLeadingZero < 0 || ttlValueWithoutLeadingZero > 255) {
+            console.log("Invalid TTL value, exiting.");
+            return;  // 直接退出函数
+          }
+
+          console.log("Setting TTL value: ", ttlValueWithoutLeadingZero); // 日志：处理后的TTL值
+
+          this.isLoading = true; // 设置 TTL 更新期间的加载状态
+          const ttlval = ttlValueWithoutLeadingZero;
+
+          fetch("/cgi-bin/set_ttl?" + new URLSearchParams({ ttlvalue: ttlval }))
+            .then((res) => {
+              return res.text(); // 使用 res.text() 获取响应数据
+            })
+            .then((data) => {
+              this.fetchTTL();  // 更新 TTL 状态
+              this.isLoading = false; // 将加载状态设置回 false
+            })
+            .catch((error) => {
+              console.error("Error setting TTL: ", error); // 日志：捕获错误
+              this.isLoading = false; // 确保在出现错误时正确处理加载状态
+            });
+        },
+
+        setDMZEnable() {
+          // 启用 DMZ，检查 IP 地址是否存在
+          if (this.dmzIP) {
+            this.atcmd = `AT+QMAP="DMZ",1,4,${this.dmzIP}`;
+            this.sendATCommand();
+            this.atCommandResponse = "";
+            this.showModal = false;
+            this.dmzMode = '1';  // 更新为启用状态
+          } else {
+            console.error("Please enter a valid IP address!");
+          }
+        },
+
+        setDMZDisable() {
+          // 禁用 DMZ
+          this.atcmd = `AT+QMAP="DMZ",0`;
+          this.sendATCommand();
+          this.dmzMode = '0';  // 更新为禁用状态
+          this.atCommandResponse = "";
+          this.showModal = false;
+        },
+        setLANIP() {
+          // 检查网关 IP 地址和起始/结束 IP 地址的最后一位是否已填写
+          if (this.lanGwIp && this.lanIpStart && this.lanIpEnd) {
+            // 提取网关 IP 地址的前三位
+            const gwIpParts = this.lanGwIp.split('.');
+
+            // 确保网关 IP 地址格式正确，并且有四个部分
+            if (gwIpParts.length === 4) {
+              // 使用网关 IP 地址的前三位与用户输入的最后一位拼接成完整的起始和结束 IP
+              const startIp = `${gwIpParts[0]}.${gwIpParts[1]}.${gwIpParts[2]}.${this.lanIpStart}`;
+              const endIp = `${gwIpParts[0]}.${gwIpParts[1]}.${gwIpParts[2]}.${this.lanIpEnd}`;
+
+              // 设置 AT 命令
+              this.atcmd = `AT+QMAP="LANIP",${startIp},${endIp},${this.lanGwIp}`;
+              this.sendATCommand();
+            } else {
+              console.error("The gateway IP address format is invalid!");
+            }
+          } else {
+            console.error("Please enter a valid gateway IP address and the starting and ending IP addresses!");
+          }
+
+          this.atCommandResponse = "";
+          this.showModal = false;
+        },
+
+        init() {
+          if (!this.isRebooted) {
+            return;  // 如果设备正在重启，跳过
+          }
+
+          this.fetchCurrentSettings();  // 发送 AT 命令获取当前设置
+          this.fetchTTL();  // 获取 TTL 状态
+        },
+      };
+    }
+  </script>
+</body>
+
+</html>

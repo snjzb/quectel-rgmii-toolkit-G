@@ -1,0 +1,34 @@
+#!/bin/bash
+QUERY_STRING=$(echo "${QUERY_STRING}" | sed 's/;//g')
+function urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
+
+if [ "${QUERY_STRING}" ]; then
+    export IFS="&"
+    for cmd in ${QUERY_STRING}; do
+        if [ "$(echo $cmd | grep '=')" ]; then
+            key=$(echo $cmd | awk -F '=' '{print $1}')
+            value=$(echo $cmd | awk -F '=' '{print $2}')
+            eval $key=$value
+        fi
+    done
+fi
+
+x=$(urldecode "$atcmd")
+MYATCMD=$(printf '%b\n' "${atcmd//%/\\x}")
+if [ -n "${MYATCMD}" ]; then
+    wait_time=100
+    while true; do
+        runcmd=$(echo -en "$x\r\n" | microcom -t $wait_time /dev/ttyOUT2)
+        if [[ $runcmd =~ "OK" ]] || [[ $runcmd =~ "ERROR" ]]; then
+            break  # Exit the loop if "OK" or "ERROR" is found
+        fi
+        ((wait_time++))
+    done
+fi
+
+# 输出 HTTP 头并立刻用空行结束头部
+printf 'Content-Type: text/plain\r\n\r\n'
+
+# 再输出正文
+printf '%s\n' "$runcmd"
+

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simple Admin</title>
+
+    <!-- Load Bootstrap first, then custom styles for easy overriding -->
+    <link rel="stylesheet" href="css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/styles.css" />
+
+    <!-- Hide Alpine elements before initialization to prevent flickering -->
+    <style>[x-cloak]{display:none!important}</style>
+
+    <!-- JS: Use defer to avoid blocking -->
+    <script src="js/bootstrap.bundle.min.js" defer></script>
+    <script src="js/alpinejs.min.js" defer></script>
+  </head>
+
+  <body>
+    <main>
+      <div
+        class="container my-4"
+        x-data="fetchDeviceInfo()"
+        x-init="init()"
+        @keydown.escape="closeModal()"
+      >
+        <nav class="navbar navbar-expand-lg mt-2" aria-label="Main Navigation">
+          <div class="container-fluid">
+            <a class="navbar-brand" href="/"><span class="mb-0 h4">Simple Admin</span></a>
+            <button
+              class="navbar-toggler"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#navbarText"
+              aria-controls="navbarText"
+              aria-expanded="false"
+              aria-label="Toggle navigation"
+            >
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarText">
+              <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="/network.html">Network</a></li>
+                <li class="nav-item"><a class="nav-link" href="/settings.html">Settings</a></li>
+                <li class="nav-item"><a class="nav-link" href="/sms.html">SMS</a></li>
+                <li class="nav-item"><a class="nav-link" href="/console">Console</a></li>
+                <li class="nav-item"><a class="nav-link active" aria-current="page" href="/deviceinfo.html">Device Info</a></li>
+              </ul>
+              <span class="navbar-text">
+                <button class="btn btn-link text-reset" id="darkModeToggle" type="button">Dark Mode</button>
+              </span>
+            </div>
+          </div>
+        </nav>
+
+        <div class="row mt-5 gap-3">
+          <div class="col">
+            <div class="card">
+              <div class="card-header d-flex align-items-center justify-content-between">
+                <span>Device Information</span>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="spinner-border spinner-border-sm" role="status" x-show="isLoading" aria-hidden="true"></div>
+                  <span class="small text-muted" x-show="isLoading">Loading...</span>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <div class="card-text">
+                  <div class="table-responsive">
+                    <table class="table align-middle">
+                      <tbody>
+                        <tr>
+                          <th scope="row">Manufacturer</th>
+                          <td x-text="manufacturer"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Model Name</th>
+                          <td x-text="modelName"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Firmware Version</th>
+                          <td class="col-md-2" x-text="firmwareVersion"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Phone Number</th>
+                          <td class="col-md-2" x-text="phoneNumber"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">IMSI</th>
+                          <td class="col-md-2" x-text="imsi"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">ICCID</th>
+                          <td class="col-md-2" x-text="iccid"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">IMEI</th>
+                          <td class="col-md-2">
+                            <input
+                              class="form-control"
+                              type="text"
+                              x-model.trim="newImei"
+                              x-bind:placeholder="imei === '-' ? 'Getting IMEI...' : imei"
+                              inputmode="numeric"
+                              aria-label="New IMEI"
+                              :disabled="isLoading || isRebooting"
+                              @keydown.enter.prevent="openModal()"
+                            />
+                          </td>
+                          <td class="text-nowrap">
+                            <button
+                              type="button"
+                              class="btn btn-primary"
+                              @click="openModal()"
+                              :disabled="isLoading || isRebooting"
+                            >
+                              Update
+                            </button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">LAN IP</th>
+                          <td class="col-md-2" x-text="lanIp"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">WAN IPv<sup>4</sup></th>
+                          <td class="col-md-2" x-text="wwanIpv4"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">WAN IPv<sup>6</sup></th>
+                          <td class="col-md-2" x-text="wwanIpv6"></td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Version</th>
+                          <td class="col-md-2">SimpleAdminRev-Alpha-0.9</td>
+                        </tr>
+                        <tr>
+                          <th>Project Contributors</th>
+                          <td>
+                            <p
+                              type="button"
+                              class="link-info link-opacity-50-hover link-offset-2"
+                              data-bs-toggle="modal"
+                              data-bs-target="#staticBackdrop"
+                            >
+                              Show Contributors
+                            </p>
+
+                            <div
+                              class="modal fade"
+                              id="staticBackdrop"
+                              data-bs-backdrop="static"
+                              data-bs-keyboard="false"
+                              tabindex="-1"
+                              aria-labelledby="staticBackdropLabel"
+                              aria-hidden="true"
+                            >
+                              <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                  <div class="modal-header">
+                                    <h1 class="modal-title fs-5" id="staticBackdropLabel">Contributors</h1>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                  </div>
+                                  <div class="modal-body">
+                                    <table class="table table-borderless">
+                                      <tbody>
+                                        <tr>
+                                          <th>RGMII Toolkit and Documentation</th>
+                                          <td class="col-md-2"><a href="https://github.com/iamromulan" target="_blank" rel="noopener">iamromulan</a></td>
+                                        </tr>
+                                        <tr>
+                                          <th>Simple Admin 2.0</th>
+                                          <td class="col-md-2"><a href="https://github.com/dr-dolomite" target="_blank" rel="noopener">dr-dolomite</a></td>
+                                        </tr>
+                                        <tr>
+                                          <th>SMS Feature</th>
+                                          <td class="col-md-2"><a href="https://github.com/snjzb" target="_blank" rel="noopener">snjzb</a></td>
+                                        </tr>
+                                        <tr>
+                                          <th>Original Simple Admin</th>
+                                          <td class="col-md-2"><a href="https://github.com/aesthernr" target="_blank" rel="noopener">aesthernr</a></td>
+                                        </tr>
+                                        <tr>
+                                          <th>Original Socat Bridge</th>
+                                          <td class="col-md-2"><a href="https://github.com/natecarlson" target="_blank" rel="noopener">natecarlson</a></td>
+                                        </tr>
+                                        <tr>
+                                          <th>Original Simple Admin Fixes</th>
+                                          <td class="col-md-2"><a href="https://github.com/rbflurry/" target="_blank" rel="noopener">rbflurry</a></td>
+                                        </tr>
+                                        <tr>
+                                          <th>SA Parsing Patch</th>
+                                          <td class="col-md-2"><a href="https://github.com/tarunVreddy" target="_blank" rel="noopener">tarunVreddy</a></td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-footer">
+                Visit the
+                <a
+                  href="https://github.com/iamromulan/quectel-rgmii-toolkit/tree/development"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-reset"
+                  >repository</a>
+                or
+                <a
+                  href="https://github.com/iamromulan/quectel-rgmii-configuration-notes.git"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-reset"
+                  >documentation</a>
+                for more information. All rights reserved. 2024.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reboot confirmation modal -->
+        <div
+          class="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rebootConfirmTitle"
+          x-show="showModal"
+          x-cloak
+        >
+          <div class="loading-modal">
+            <div class="loading-text" style="display:flex;flex-direction:column">
+              <h3 id="rebootConfirmTitle">This will reboot the modem.</h3>
+              <p style="margin-top:0.5rem">Continue?</p>
+            </div>
+            <div class="d-grid gap-2 d-md-block">
+              <button class="btn btn-primary" type="button" @click="updateIMEI()" :disabled="isLoading">Reboot</button>
+              <button class="btn btn-danger" type="button" @click="closeModal()" :disabled="isLoading">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reboot countdown modal -->
+        <div
+          class="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rebootingTitle"
+          x-show="isRebooting"
+          x-cloak
+        >
+          <div class="loading-modal">
+            <div class="loader" aria-hidden="true"></div>
+            <div class="loading-text" style="display:flex;flex-direction:column">
+              <h3 id="rebootingTitle">Rebooting...</h3>
+              <p style="margin-top:0.5rem" aria-live="polite">
+                Please wait
+                <span x-text="countdown" style="font-weight:500"></span>
+                seconds.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="js/dark-mode.js" defer></script>
+    <script>
+      function fetchDeviceInfo() {
+        // 工具函数
+        const DIGITS = /^\d{10,20}$/;
+        const isPlain = (s) => s && !s.startsWith("+") && !s.startsWith("AT+") && s !== "OK";
+        const next = (arr, from, predicate) => { for (let i = from; i < arr.length; i++) { const s = arr[i]; if (predicate(s)) return [i, s]; } return [-1, null]; };
+        const nextPlain = (lines, from = 0) => next(lines, from, (s) => isPlain(s) && !DIGITS.test(s));
+        const nextPlainDigits = (lines, from = 0) => next(lines, from, (s) => isPlain(s) && DIGITS.test(s));
+
+        const httpGetAT = async (atcmd) => {
+          const url = "/cgi-bin/get_atcommand?" + new URLSearchParams({ atcmd });
+          const res = await fetch(url);
+          return await res.text();
+        };
+
+        return {
+          // 可见状态
+          manufacturer: "-",
+          modelName: "-",
+          firmwareVersion: "-",
+          imsi: "-",
+          iccid: "-",
+          imei: "-",
+          newImei: "",
+          lanIp: "-",
+          wwanIpv4: "-",
+          wwanIpv6: "-",
+          phoneNumber: "-",
+
+          // UI 状态
+          isLoading: false,
+          showModal: false,
+          isRebooting: false,
+          countdown: 3,
+
+          // 内部状态与并发控制
+          _inflightMap: new Map(),   // key: atcmd, val: Promise<string>
+          _loadingDeviceInfo: false, // 本地锁：设备信息查询
+          _didInitialFetch: false,   // init() 只跑一次
+          _loadingCount: 0,          // 全局加载计数（更稳地控制 isLoading）
+
+          // 发送 AT：相同命令并发只发一次
+          async sendATCommand(atcmd) {
+            if (!atcmd) return "";
+
+            // 已有同命令在飞？直接复用
+            if (this._inflightMap.has(atcmd)) {
+              return this._inflightMap.get(atcmd);
+            }
+
+            const task = (async () => {
+              try {
+                this._loadingCount++;
+                this.isLoading = true;
+                const data = await httpGetAT(atcmd);
+                return data;
+              } catch (e) {
+                console.error("错误：", e);
+                throw e;
+              } finally {
+                this._loadingCount--;
+                this.isLoading = this._loadingCount > 0;
+              }
+            })();
+
+            this._inflightMap.set(atcmd, task);
+            try {
+              return await task;
+            } finally {
+              this._inflightMap.delete(atcmd);
+            }
+          },
+
+          // 批量获取设备信息（只触发一次；并发合并）
+          async fetchATCommand() {
+            if (this._loadingDeviceInfo) return; // 已在拉取，忽略重复
+            this._loadingDeviceInfo = true;
+            try {
+              const cmd = 'AT+CGMI;+CGMM;+CGSN;+QMAP="LANIP";+QMAP="WWAN";+QGMR;+CIMI;+ICCID;+CNUM';
+              const text = await this.sendATCommand(cmd);
+              this.parseFetchedData(text);
+            } finally {
+              this._loadingDeviceInfo = false;
+            }
+          },
+
+          // 解析返回文本（不依赖任何调试输出变量）
+          parseFetchedData(rawText) {
+            const raw = rawText || "";
+            const lines = raw
+              .split("\n")
+              .map((s) => s.replace(/\r/g, "").trim())
+              .filter((s) => s !== "");
+
+            let manufacturer = "-";
+            let modelName = "-";
+            let firmwareVersion = "-";
+            let imsi = "-";
+            let imei = "-";
+
+            const headerIdx = lines.findIndex((s) => s.startsWith("AT+"));
+
+            if (headerIdx !== -1) {
+              // 标准：按命令顺序读取下一条纯文本
+              const tokens = lines[headerIdx]
+                .split(";")
+                .map((t) => t.trim())
+                .filter(Boolean)
+                .map((t) => {
+                  const up = t.toUpperCase();
+                  return up.startsWith("AT+") ? up : "AT" + up;
+                });
+
+              let p = headerIdx + 1;
+
+              for (const t of tokens) {
+                if (t.includes("AT+CGMI")) {
+                  const [i, s] = nextPlain(lines, p);
+                  if (i !== -1) { manufacturer = s; p = i + 1; }
+                } else if (t.includes("AT+CGMM")) {
+                  const [i, s] = nextPlain(lines, p);
+                  if (i !== -1) { modelName = s; p = i + 1; }
+                } else if (t.includes("AT+CGSN")) {
+                  const [i, s] = nextPlainDigits(lines, p);
+                  if (i !== -1) { imei = s; p = i + 1; }
+                } else if (t.includes("AT+QGMR")) {
+                  const [i, s] = nextPlain(lines, p);
+                  if (i !== -1) { firmwareVersion = s; p = i + 1; }
+                } else if (t.includes("AT+CIMI")) {
+                  const [i, s] = nextPlainDigits(lines, p);
+                  if (i !== -1) { imsi = s; p = i + 1; }
+                }
+              }
+            } else {
+              // 容错：没有 header 行时以纯文本顺序推断
+              const plain = lines.filter(isPlain);
+              const nonDigitPlain = plain.filter((s) => !DIGITS.test(s));
+              manufacturer = nonDigitPlain[0] || "-";
+              modelName = nonDigitPlain[1] || "-";
+              firmwareVersion = nonDigitPlain[2] || "-";
+              const numericCandidates = plain.filter((s) => DIGITS.test(s));
+              if (numericCandidates.length) {
+                imsi = numericCandidates[0] || "-";
+                imei = numericCandidates[numericCandidates.length - 1] || "-";
+              }
+            }
+
+            // ICCID
+            const iccidLine = lines.find((s) => s.startsWith("+ICCID:"));
+            const iccid = iccidLine ? iccidLine.replace("+ICCID:", "").trim() : "-";
+
+            // QMAP: LANIP / WWAN
+            const lanLine = lines.find((s) => s.startsWith('+QMAP: "LANIP"'));
+            let lanIp = "-";
+            if (lanLine) {
+              const parts = lanLine.split(",");
+              lanIp = (parts[3] || "-").replace(/"/g, "").trim();
+            }
+
+            const qmap = (family) =>
+              lines.find((s) => s.startsWith('+QMAP: "WWAN"') && s.includes(`"${family}"`));
+            const m4 = qmap("IPV4");
+            const m6 = qmap("IPV6");
+            const wwanIpv4 = m4 ? (m4.match(/"IPV4","([^"]+)"/)?.[1] || "-") : "-";
+            const wwanIpv6 = m6 ? (m6.match(/"IPV6","([^"]+)"/)?.[1] || "-") : "-";
+
+            // 电话号码
+            const cnumLine = lines.find((s) => s.startsWith("+CNUM:"));
+            const phoneNumber = cnumLine ? (cnumLine.match(/"([^"]*)"/)?.[1] || "No SIM card inserted") : "No SIM card inserted";
+
+            // 赋值
+            this.manufacturer = manufacturer;
+            this.modelName = modelName;
+            this.firmwareVersion = firmwareVersion;
+            this.imsi = imsi || "-";
+            this.iccid = iccid || "-";
+            this.imei = imei || "-";
+            this.lanIp = lanIp;
+            this.wwanIpv4 = wwanIpv4;
+            this.wwanIpv6 = wwanIpv6;
+            this.phoneNumber = phoneNumber;
+          },
+
+          // 更新 IMEI -> 一次请求设置+重启
+          async updateIMEI() {
+            const val = (this.newImei || "").trim();
+            await this.sendATCommand(`AT+EGMR=1,7,"${val}";+CFUN=1,1`);
+            this.showModal = false;
+            this.isRebooting = true;
+            this.countdown = 40;
+
+            const interval = setInterval(() => {
+              this.countdown--;
+              if (this.countdown <= 0) {
+                clearInterval(interval);
+                this.isRebooting = false;
+                this.init(); // 重启完成后再次拉取设备信息
+              }
+            }, 1000);
+          },
+
+          // 打开确认模态（保持原有校验规则）
+          openModal() {
+            const val = (this.newImei || "").trim();
+            if (!val) {
+              alert("没有提供新的 IMEI。");
+              return;
+            }
+            if (val.length !== 15 || !/^\d+$/.test(val)) {
+              alert("IMEI 无效");
+              return;
+            }
+            if (val === this.imei) {
+              alert("IMEI 与当前 IMEI 相同");
+              return;
+            }
+            this.showModal = true;
+          },
+
+          closeModal() {
+            this.showModal = false;
+          },
+
+          // init 只执行一次；内部已做去重
+          init() {
+            if (this._didInitialFetch) return;
+            this._didInitialFetch = true;
+            this.fetchATCommand();
+          },
+        };
+      }
+    </script>
+  </body>
+</html>

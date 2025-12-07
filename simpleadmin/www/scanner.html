@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Admin</title>
+  <!-- Import all Bootstrap CSS files from the css folder -->
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <!-- Logo -->
+  <link rel="simpleadmin-logo" href="favicon.ico" />
+  <!-- Import Bootstrap Javascript -->
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script src="js/alpinejs.min.js" defer></script>
+</head>
+
+<body>
+  <main>
+    <div class="container my-4" x-data="cellScanner()">
+      <nav class="navbar navbar-expand-lg mt-2">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="/"><span class="mb-0 h4">Simple Admin</span></a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText"
+            aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarText">
+            <ul class="navbar-nav me-auto mb-2 ml-4 mb-lg-0">
+              <li class="nav-item">
+                <a class="nav-link" href="/">Home</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link active" href="/network.html" aria-current="page">Network</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/settings.html">Settings</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/sms.html">SMS</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/console">Console</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/deviceinfo.html">Device Info</a>
+              </li>
+            </ul>
+            <span class="navbar-text">
+              <button class="btn btn-link text-reset" id="darkModeToggle">
+                Dark Mode
+              </button>
+            </span>
+          </div>
+        </div>
+      </nav>
+      <div class="row mt-3 mb-4">
+        <div class="col">
+          <div class="card">
+            <div class="card-header">Cell Scan</div>
+            <div class="card-body">
+              <div class="card-text">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Network</th>
+                      <th scope="col">Carrier</th>
+                      <th scope="col">Band</th>
+                      <th scope="col">Frequency</th>
+                      <th scope="col">PCI</th>
+                      <th scope="col">RSRP</th>
+                      <th scope="col">Signal</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cellScanTableBody">
+                    <!-- Cell rows here -->
+                  </tbody>
+                </table>
+                <div>
+                  <div class="col-md-4 mb-3">
+                    <div class="form-group">
+                      <label for="exampleFormControlSelect1">Select Scan Mode</label>
+                      <select class="form-select" id="cellSelect" x-model="cellScanMode">
+                        <option selected>Select Scan Mode</option>
+                        <option value="Full Scan">Full Scan</option>
+                        <option value="LTE Only">LTE Only</option>
+                        <option value="NR5G Only">NR5G Only</option>
+                      </select>
+                      <div id="cellSelectHelper" class="form-text">
+                        The cell scan will scan all LTE and NR5G-SA cells in your area. The scan may disconnect your
+                        network and take a few minutes to complete.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                    <button class="btn btn-primary me-md-2" type="button" x-on:click="startCellScan()"
+                      :disabled='isLoading || cellScanMode === "Unspecified" || cellScanMode === "Select Scan Mode"'
+                      x-text="isCellScanning ? 'Scanning... Please wait.' : 'Start Cell Scan'">
+                    </button>
+                    <button class="btn btn-danger" type="button" x-on:click="clearTableRowsBodyCellScan()"
+                      :disabled="isLoading || !resultDoneCell">
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="card">
+            <div class="card-header">LTE and NR5G Neighbor Cell Scan</div>
+            <div class="card-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Network</th>
+                    <th scope="col">Frequency</th>
+                    <th scope="col">PCI</th>
+                    <th scope="col">RSRP</th>
+                    <th scope="col">Signal</th>
+                  </tr>
+                </thead>
+                <tbody id="neighbourCellTableBody">
+                  <!-- Neighboring cell rows here -->
+                </tbody>
+              </table>
+              <div>
+                <div class="col-md-4 mb-3">
+                  <div class="form-group">
+                    <label for="exampleFormControlSelect1">Select Scan Mode</label>
+                    <select class="form-select" id="neighbourCellSelect" x-model="neighbourCellsScanMode">
+                      <option selected>Select Scan Mode</option>
+                      <option value="LTE and NR5G">LTE and NR5G</option>
+                      <option value="LTE">LTE</option>
+                      <option value="NR5G">NR5G</option>
+                    </select>
+                    <div id="neighbourCellSelectHelper" class="form-text">
+                      The neighboring cell scan will scan only LTE or NR5G cells from your network provider.
+                    </div>
+                  </div>
+                </div>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                  <button class="btn btn-primary me-md-2" type="button" x-on:click="getNeighbourcellLTEandNR5G()"
+                    :disabled="isLoading || neighbourCellsScanMode === 'Unspecified' || neighbourCellsScanMode === 'Select Scan Mode'"
+                    x-text="isneighbourScanning ? 'Scanning... Please wait.' : 'Start Neighboring Cell Scan'">
+
+                  </button>
+                  <button class="btn btn-danger" type="button" x-on:click="clearTableRowsBodyNeighbourCells()"
+                    :disabled="isLoading || !resultDoneNeighbourCell">
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="js/dark-mode.js"></script>
+  <script>
+    function cellScanner() {
+      return {
+        networkNames: {
+          // China
+          46000: "China Mobile",
+          46001: "China Unicom",
+          46003: "China Telecom",
+          46009: "China Unicom",
+          46011: "China Telecom",
+          46015: "China Broadcasting Network",
+          46020: "China Tietong",
+
+          // United States
+          31001: "AT&T",
+          31002: "T-Mobile USA",
+          31003: "Verizon Wireless",
+          31004: "Sprint",
+          31026: "US Cellular",
+
+          // United Kingdom
+          23430: "EE",
+          23431: "O2 UK",
+          23432: "Vodafone UK",
+          23433: "Three UK",
+
+          // Canada
+          30241: "Rogers Wireless",
+          30272: "Telus Mobility",
+          30261: "Bell Mobility",
+
+          // Germany
+          26201: "Telekom Deutschland",
+          26202: "Vodafone Germany",
+          26203: "O2 Germany",
+
+          // France
+          20801: "Orange France",
+          20802: "SFR",
+          20810: "Bouygues Telecom",
+
+          // Italy
+          22201: "TIM Italy",
+          22210: "Vodafone Italy",
+          22288: "Wind Tre Italy",
+
+          // Spain
+          21403: "Movistar Spain",
+          21407: "Vodafone Spain",
+          21430: "Orange Spain",
+
+          // Japan
+          44010: "NTT Docomo",
+          44020: "SoftBank Japan",
+          44050: "KDDI AU",
+
+          // South Korea
+          45005: "SK Telecom",
+          45008: "KT Corporation",
+          45011: "LG Uplus",
+
+          // Australia
+          50501: "Telstra",
+          50502: "Optus",
+          50503: "Vodafone Australia",
+
+          // Brazil
+          72402: "Claro Brazil",
+          72403: "TIM Brazil",
+          72404: "Vivo Brazil",
+
+          // Argentina
+          72201: "Movistar Argentina",
+          72202: "Claro Argentina",
+          72203: "Personal Argentina",
+
+          // Mexico
+          334030: "Telcel",
+          334020: "Movistar Mexico",
+          334010: "AT&T Mexico",
+
+          // South Africa
+          65501: "Vodacom South Africa",
+          65502: "MTN South Africa",
+          65510: "Cell C",
+
+          // Russia
+          25001: "MTS",
+          25002: "Beeline",
+          25099: "Megafon",
+
+          // Saudi Arabia
+          42001: "STC",
+          42002: "Mobily",
+          42003: "Zain Saudi Arabia",
+
+          // Egypt
+          60201: "Vodafone Egypt",
+          60202: "Orange Egypt",
+          60205: "Etisalat Misr",
+
+          // Indonesia
+          51001: "Telkomsel",
+          51003: "Indosat Ooredoo",
+          51011: "XL Axiata",
+
+          // Turkey
+          28601: "Turkcell",
+          28602: "Vodafone Turkey",
+          28603: "Türk Telekom",
+
+          // Pakistan
+          41001: "Mobilink",
+          41002: "Telenor Pakistan",
+          41003: "Ufone",
+          41004: "Zong Pakistan",
+
+          // Bangladesh
+          47001: "Grameenphone",
+          47002: "Robi",
+          47003: "Banglalink",
+          47005: "Teletalk",
+
+          // Vietnam
+          45201: "Viettel",
+          45202: "MobiFone",
+          45203: "Vinaphone",
+
+          // Malaysia
+          50210: "Maxis",
+          50212: "Celcom",
+          50213: "DiGi",
+          50214: "U Mobile",
+
+          // Philippines
+          51501: "Globe Telecom",
+          51502: "Smart Communications",
+          51503: "Sun Cellular",
+
+          // Thailand
+          52001: "AIS",
+          52002: "DTAC",
+          52003: "TrueMove",
+
+          // Singapore
+          52501: "Singtel",
+          52502: "StarHub",
+          52503: "M1",
+
+          // UAE
+          42401: "Etisalat",
+          42402: "du",
+
+          // Kuwait
+          41901: "Zain Kuwait",
+          41902: "Ooredoo Kuwait",
+
+          // Israel
+          42501: "Cellcom",
+          42502: "Partner",
+          42503: "Pelephone",
+
+          // Greece
+          20201: "COSMOTE",
+          20205: "Vodafone Greece",
+          20216: "Wind Hellas",
+
+          // Switzerland
+          22801: "Swisscom",
+          22802: "Sunrise",
+          22803: "Salt",
+
+          // Portugal
+          27403: "Meo",
+          27404: "Vodafone Portugal",
+          27405: "NOS",
+
+          // Norway
+          24201: "Telenor Norway",
+          24202: "Telia Norway",
+
+          // Sweden
+          24001: "Telia Sweden",
+          24002: "Telenor Sweden",
+
+          // Finland
+          24401: "Elisa",
+          24402: "Telia Finland",
+          24403: "DNA Finland",
+
+          // Denmark
+          23801: "TDC",
+          23802: "Telia Denmark",
+
+          // Belgium
+          20601: "Proximus",
+          20610: "Orange Belgium",
+          20620: "Telenet",
+
+          // Netherlands
+          20404: "KPN",
+          20416: "Vodafone Netherlands",
+          20424: "T-Mobile Netherlands",
+
+          // Luxembourg
+          27401: "Post Luxembourg",
+          27402: "Orange Luxembourg",
+
+          // Poland
+          26001: "Plus",
+          26002: "Orange Poland",
+          26003: "Play",
+          26006: "T-Mobile Poland",
+
+          // Czech Republic
+          23001: "T-Mobile Czech Republic",
+          23002: "Vodafone Czech Republic",
+          23003: "O2 Czech Republic",
+
+          // Hungary
+          21630: "T-Mobile Hungary",
+          21670: "Vodafone Hungary",
+          21690: "Telekom Hungary",
+
+          // Slovakia
+          23101: "Orange Slovakia",
+          23103: "Telekom Slovakia",
+          23107: "O2 Slovakia",
+
+          // Austria
+          23201: "A1 Telekom Austria",
+          23203: "Telekom Austria",
+          23210: "T-Mobile Austria",
+
+          // Switzerland
+          22801: "Swisscom",
+          22802: "Sunrise",
+          22803: "Salt",
+
+          // Latin America
+          71402: "Claro Argentina",
+          71403: "Movistar Argentina",
+          71401: "Personal Argentina",
+          73401: "Movistar Chile",
+          73402: "Entel Chile",
+          73403: "Claro Chile",
+
+          // Other regions
+          20210: "Turkcell",
+          20211: "Vodafone Turkey",
+          20502: "Airtel Nigeria",
+          51010: "Indosat",
+          52501: "Singtel"
+        },
+
+        nr5g_cells: [],
+        lte_cells: [],
+        nr5g_cells_parsed: [],
+        lte_cells_parsed: [],
+        atcmd: "",
+        tableRows: [],
+        nr5g_neighbourCells: [],
+        lte_neighbourCells: [],
+        nr5g_neighbourCellsParsed: [],
+        lte_neighbourCellsParsed: [],
+        neighbourCellsTableRows: [],
+        cellScanMode: "Unspecified",
+        neighbourCellsScanMode: "Unspecified",
+        isLoading: false,
+        isCellScanning: false,
+        isneighbourScanning: false,
+        resultDoneCell: false,
+        resultDoneNeighbourCell: false,
+
+        init() {
+          this.generateNeighbourCellsTableRow();
+          this.clearTableRowsBodyCellScan();
+        },
+        startCellScan() {
+          this.clearCellScanData();
+
+          // Set AT command based on scan mode
+          this.atcmd = this.getATCommandForScanMode(this.cellScanMode);
+
+          // Send AT command to device
+          this.isLoading = true;
+          this.isCellScanning = true;
+
+          fetch(`/cgi-bin/get_atcommand?${new URLSearchParams({ atcmd: this.atcmd })}`)
+            .then(res => res.text())
+            .then(data => this.processScanData(data))
+            .then(() => {
+              this.isLoading = false;
+              this.isCellScanning = false;
+              this.resultDoneCell = true;
+            })
+            .catch(error => {
+              console.error("Error processing scan data:", error);
+              this.isLoading = false;
+              this.isCellScanning = false;
+            });
+        },
+        getATCommandForScanMode(scanMode) {
+          const commands = {
+            "Full Scan": "AT+QSCAN=3,1",
+            "LTE Only": "AT+QSCAN=1,1",
+            "NR5G Only": "AT+QSCAN=2,1"
+          };
+          return commands[scanMode] || "";
+        },
+        processScanData(data) {
+          const lines = data.split("\n").filter(line => line && line !== "OK");
+          if (lines.length <= 2) return; // Handle invalid data
+
+          lines.splice(0, 1); // Remove first element
+          lines.splice(lines.length - 2, 2); // Remove last two elements
+
+          lines.forEach(line => {
+            if (line.includes("NR5G")) {
+              this.nr5g_cells.push(line);
+            } else if (line.includes("LTE")) {
+              this.lte_cells.push(line);
+            }
+          });
+
+          this.nr5g_cells.forEach(cell => this.nr5g_cells_parsed.push(this.parseCellData(cell, "NR5G")));
+          this.lte_cells.forEach(cell => this.lte_cells_parsed.push(this.parseCellData(cell, "LTE")));
+
+          this.generateTableRow();
+        },
+        parseCellData(cell, type) {
+          const parts = cell.split(":")[1]?.split(",") || [];
+          const provider = this.convertMCCMNCtoNetworkName(parts[1], parts[2]);
+          return {
+            type: type,
+            provider: provider,
+            band: parts[12],
+            freq: parts[3],
+            pci: parts[4],
+            rsrp: parts[5]
+          };
+        },
+        generateTableRow() {
+          const tableBody = document.getElementById("cellScanTableBody");
+          tableBody.innerHTML = ""; // Clear table body before generating new rows
+          this.tableRows = []; // Reset array before generating new rows
+
+          const cells = this.cellScanMode === "Full Scan"
+            ? [...this.nr5g_cells_parsed, ...this.lte_cells_parsed]
+            : this.cellScanMode === "NR5G Only"
+              ? this.nr5g_cells_parsed
+              : this.lte_cells_parsed;
+
+          cells.forEach(cell => {
+            const signalSvg = this.signalIconSVG(cell.rsrp);
+            this.tableRows.push(`
+              <tr>
+                <th scope="row">${cell.type}</th>
+                <td>${cell.provider}</td>
+                <td>${cell.band}</td>
+                <td>${cell.freq}</td>
+                <td>${cell.pci}</td>
+                <td>${cell.rsrp}</td>
+                <td>${signalSvg}</td>
+              </tr>
+            `);
+          });
+
+          if (this.tableRows.length === 0) {
+            this.tableRows.push(`
+              <tr>
+                <th scope="row">Empty</th>
+                <td>Empty</td>
+                <td>Empty</td>
+                <td>Empty</td>
+                <td>Empty</td>
+                <td>Empty</td>
+                <td>Empty</td>
+              </tr>
+            `);
+          }
+
+          tableBody.innerHTML = this.tableRows.join('');
+        },
+        signalIconSVG(rsrp) {
+          const levels = [
+            { min: -55, svg: `<line x1="2" y1="20" x2="2" y2="20" /><line x1="7" y1="20" x2="7" y2="16" /><line x1="12" y1="20" x2="12" y2="12" /><line x1="17" y1="20" x2="17" y2="8" /><line x1="22" y1="20" x2="22" y2="4" />` },
+            { min: -85, svg: `<line x1="2" y1="20" x2="2" y2="20" /><line x1="7" y1="20" x2="7" y2="16" /><line x1="12" y1="20" x2="12" y2="12" /><line x1="17" y1="20" x2="17" y2="8" />` },
+            { min: -95, svg: `<line x1="2" y1="20" x2="2" y2="20" /><line x1="7" y1="20" x2="7" y2="16" /><line x1="12" y1="20" x2="12" y2="12" />` },
+            { min: -Infinity, svg: `<line x1="2" y1="20" x2="2" y2="20" /><line x1="7" y1="20" x2="7" y2="16" />` }
+          ];
+          const level = levels.find(l => rsrp >= l.min);
+          return level ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${level.svg}</svg>` : '';
+        },
+        convertMCCMNCtoNetworkName(mcc, mnc) {
+          const mccmnc = mcc + mnc;
+          return this.networkNames[mccmnc] || `${mcc} ${mnc}`;
+        },
+        clearCellScanData() {
+          this.nr5g_cells = [];
+          this.lte_cells = [];
+          this.nr5g_cells_parsed = [];
+          this.lte_cells_parsed = [];
+          this.tableRows = [];
+        },
+        clearTableRowsBodyCellScan() {
+          this.clearCellScanData();
+          this.resultDoneCell = false;
+          const tableBody = document.getElementById("cellScanTableBody");
+          tableBody.innerHTML = `
+            <tr>
+              <th scope="row">Empty</th>
+              <td>Empty</td>
+              <td>Empty</td>
+              <td>Empty</td>
+              <td>Empty</td>
+              <td>Empty</td>
+              <td>Empty</td>
+            </tr>
+          `;
+        },
+        getNeighbourcellLTEandNR5G() {
+          this.clearNeighbourCellData();
+
+          let commands = [];
+          if (this.neighbourCellsScanMode === "NR5G") {
+            commands = ['AT+QNWCFG="nr5g_meas_info"'];
+          } else if (this.neighbourCellsScanMode === "LTE") {
+            commands = ['AT+QENG="neighbourcell"'];
+          } else if (this.neighbourCellsScanMode === "LTE and NR5G") {
+            commands = ['AT+QNWCFG="nr5g_meas_info";+QENG="neighbourcell"'];
+          }
+
+          this.isLoading = true;
+          this.isneighbourScanning = true;
+
+          Promise.all(commands.map(cmd => fetch(`/cgi-bin/get_atcommand?${new URLSearchParams({ atcmd: cmd })}`).then(res => res.text())))
+
+            .then(responses => {
+              responses.forEach(data => this.processNeighbourCellData(data));
+            })
+            .then(() => {
+              this.isneighbourScanning = false;
+              this.isLoading = false;
+              this.resultDoneNeighbourCell = true;
+            })
+            .catch(error => {
+              console.error("Error processing neighbour cell data:", error);
+              this.isLoading = false;
+              this.isneighbourScanning = false;
+            });
+        },
+        processNeighbourCellData(data) {
+          const lines = data.split("\n").filter(line => line && line !== "OK");
+
+          if (this.neighbourCellsScanMode === "NR5G") {
+            lines.shift(); // Remove first line
+          }
+          if (this.neighbourCellsScanMode === "LTE and NR5G") {
+            lines.shift(); // Remove first line
+          }
+
+          lines.forEach(line => {
+            if (line.includes("WCDMA") || line.includes("LTE")) {
+              this.lte_neighbourCells.push(line);
+            } else if (line.includes("nr5g_meas_info")) {
+              this.nr5g_neighbourCells.push(line);
+            }
+          });
+
+          this.lte_neighbourCells.forEach(cell => this.lte_neighbourCellsParsed.push(this.parseNeighbourCellData(cell)));
+          this.nr5g_neighbourCells.forEach(cell => this.nr5g_neighbourCellsParsed.push(this.parseNeighbourCellData(cell)));
+
+          this.generateNeighbourCellsTableRow();
+        },
+        parseNeighbourCellData(cell) {
+          if (cell.includes("WCDMA")) {
+            const parts = cell.split(",");
+            return {
+              type: "WCDMA",
+              freq: parts[2],
+              pci: parts[4],
+              rsrp: parts[5],
+            };
+          } else if (cell.includes("LTE")) {
+            const parts = cell.split(",");
+            return {
+              type: "LTE",
+              freq: parts[2],
+              pci: parts[3],
+              rsrp: parts[5],
+            };
+          } else if (cell.includes("nr5g_meas_info")) {
+            const parts = cell.split(",");
+            return {
+              type: "NR5G",
+              freq: parts[2],
+              pci: parts[3],
+              rsrp: parts[4],
+            };
+          }
+        },
+        generateNeighbourCellsTableRow() {
+          const tableBody = document.getElementById("neighbourCellTableBody");
+          tableBody.innerHTML = ""; // Clear table body before generating new rows
+          this.neighbourCellsTableRows = []; // Reset array before generating new rows
+
+          const cells = this.neighbourCellsScanMode === "LTE and NR5G"
+            ? [...this.lte_neighbourCellsParsed, ...this.nr5g_neighbourCellsParsed]
+            : this.neighbourCellsScanMode === "LTE"
+              ? this.lte_neighbourCellsParsed
+              : this.nr5g_neighbourCellsParsed;
+
+          cells.forEach(cell => {
+            const signalSvg = this.signalIconSVG(cell.rsrp);
+            this.neighbourCellsTableRows.push(`
+              <tr>
+                <th scope="row">${cell.type}</th>
+                <td>${cell.freq}</td>
+                <td>${cell.pci}</td>
+                <td>${cell.rsrp}</td>
+                <td>${signalSvg}</td>
+              </tr>
+            `);
+          });
+
+          if (this.neighbourCellsTableRows.length === 0) {
+            this.neighbourCellsTableRows.push(`
+              <tr>
+                <th scope="row">Empty</th>
+                <td>Empty</td>
+                <td>Empty</td>
+                <td>Empty</td>
+                <td>Empty</td>
+              </tr>
+            `);
+          }
+
+          tableBody.innerHTML = this.neighbourCellsTableRows.join('');
+        },
+        clearNeighbourCellData() {
+          this.lte_neighbourCells = [];
+          this.nr5g_neighbourCells = [];
+          this.lte_neighbourCellsParsed = [];
+          this.nr5g_neighbourCellsParsed = [];
+          this.neighbourCellsTableRows = [];
+        },
+        clearTableRowsBodyNeighbourCells() {
+          this.clearNeighbourCellData();
+          this.resultDoneNeighbourCell = false;
+          const tableBody = document.getElementById("neighbourCellTableBody");
+          tableBody.innerHTML = `
+            <tr>
+              <th scope="row">Empty</th>
+              <td>Empty</td>
+              <td>Empty</td>
+              <td>Empty</td>
+              <td>Empty</td>
+            </tr>
+          `;
+        },
+      };
+    }
+  </script>
+</body>
+
+</html>
