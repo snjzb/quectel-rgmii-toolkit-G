@@ -2,7 +2,7 @@
 
 # Define toolkit paths
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/opt/bin:/opt/sbin:/usrdata/root/bin
-GITUSER="iamromulan"
+GITUSER="snjzb"
 REPONAME="quectel-rgmii-toolkit-G"
 GITTREE="SDXLEMUR"
 GITMAINTREE="SDXLEMUR"
