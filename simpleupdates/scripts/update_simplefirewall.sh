@@ -3,7 +3,7 @@
 # Define constants
 # Define GitHub repo info
 GITUSER="snjzb"
-REPONAME="quectel-rgmii-toolkit"
+REPONAME="quectel-rgmii-toolkit-G"
 GITTREE="development-SDXLEMUR"
 GITMAINTREE="SDXLEMUR"
 GITDEVTREE="development-SDXLEMUR"
@@ -52,7 +52,7 @@ cat <<EOF > "$TMP_SCRIPT"
 
 # Define GitHub repo info
 GITUSER="snjzb"
-REPONAME="quectel-rgmii-toolkit"
+REPONAME="quectel-rgmii-toolkit-G"
 GITTREE="SDXLEMUR"
 GITMAINTREE="SDXLEMUR"
 GITDEVTREE="development-SDXLEMUR"

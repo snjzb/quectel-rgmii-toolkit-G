@@ -3,7 +3,7 @@ snjzb#!/bin/bash
 # Define constants
 # Define GitHub repo info
 GITUSER="snjzb"
-REPONAME="quectel-rgmii-toolkit"
+REPONAME="quectel-rgmii-toolkit-G"
 GITTREE="development-SDXLEMUR"
 GITMAINTREE="SDXLEMUR"
 GITDEVTREE="development-SDXLEMUR"
@@ -58,7 +58,7 @@ export HOME=/usrdata/root
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/opt/bin:/opt/sbin:/usrdata/root/bin
 # Define GitHub repo info
 GITUSER="snjzb"
-REPONAME="quectel-rgmii-toolkit"
+REPONAME="quectel-rgmii-toolkit-G"
 GITTREE="SDXLEMUR"
 GITMAINTREE="SDXLEMUR"
 GITDEVTREE="development-SDXLEMUR"
